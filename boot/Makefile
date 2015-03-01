@@ -26,7 +26,7 @@ CFLAGS := $(CFLAGS) -DDEBUG
 endif
 
 TARGET := boot.efi
-OBJ_FILES := main.o reloc.o start.o
+OBJ_FILES := main.o reloc.o start.o io.o
 
 OBJS := $(addprefix build/,$(OBJ_FILES))
 DEPS := $(addprefix deps/,$(OBJ_FILES:.o=.d))
