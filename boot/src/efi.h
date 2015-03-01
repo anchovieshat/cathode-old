@@ -37,10 +37,34 @@ typedef struct _EfiSimpleTextOutputProtocol EfiSimpleTextOutputProtocol;
 
 typedef EfiStatus (EFIAPI *EfiTextReset) (EfiSimpleTextOutputProtocol *this, bool extended_verification);
 typedef EfiStatus (EFIAPI *EfiTextString) (EfiSimpleTextOutputProtocol *this, u16 *string);
+typedef EfiStatus (EFIAPI *EfiTextTestString) (EfiSimpleTextOutputProtocol *this, u16 *string);
+typedef EfiStatus (EFIAPI *EfiTextQueryMode) (EfiSimpleTextOutputProtocol *this, usize mode_number, usize *columns, usize *rows);
+typedef EfiStatus (EFIAPI *EfiTextSetMode) (EfiSimpleTextOutputProtocol *this, usize mode_number);
+typedef EfiStatus (EFIAPI *EfiTextSetAttribute) (EfiSimpleTextOutputProtocol *this, usize attribute);
+typedef EfiStatus (EFIAPI *EfiTextClearScreen) (EfiSimpleTextOutputProtocol *this);
+typedef EfiStatus (EFIAPI *EfiTextSetCursorPosition) (EfiSimpleTextOutputProtocol *this, usize column, usize row);
+typedef EfiStatus (EFIAPI *EfiTextEnableCursor) (EfiSimpleTextOutputProtocol *this, bool visible);
+
+typedef struct {
+	i32 max_mode;
+	i32 mode;
+	i32 attribute;
+	i32 cursor_column;
+	i32 cursor_row;
+	bool cursor_visible;
+} SimpleTextOutputMode;
 
 struct _EfiSimpleTextOutputProtocol {
 	EfiTextReset reset;
 	EfiTextString output_string;
+	EfiTextTestString test_string;
+	EfiTextQueryMode query_mode;
+	EfiTextSetMode set_mode;
+	EfiTextSetAttribute set_attribute;
+	EfiTextClearScreen clear_screen;
+	EfiTextSetCursorPosition set_cursor_position;
+	EfiTextEnableCursor enable_cursor;
+	SimpleTextOutputMode *mode;
 };
 
 struct _EfiSimpleTextInputProtocol;
