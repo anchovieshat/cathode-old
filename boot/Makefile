@@ -26,7 +26,7 @@ CFLAGS := $(CFLAGS) -DDEBUG
 endif
 
 TARGET := boot.efi
-OBJ_FILES := main.o reloc.o start.o io.o
+OBJ_FILES := main.o reloc.o start.o io.o util.o
 
 OBJS := $(addprefix build/,$(OBJ_FILES))
 DEPS := $(addprefix deps/,$(OBJ_FILES:.o=.d))
@@ -93,3 +93,4 @@ boot.img: $(TARGET)
 	@mmd -i $@ ::/EFI
 	@mmd -i $@ ::/EFI/Boot
 	@mcopy -i $@ boot.efi ::/EFI/Boot/bootx64.efi
+	@mcopy -i $@ ../kernel/kernel ::/kernel.elf

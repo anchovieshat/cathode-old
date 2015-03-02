@@ -163,6 +163,10 @@ typedef enum {
 	EfiResetPlatformSpecific
 } EfiResetType;
 
+#define EFI_DEVICE_PATH_PROTOCOL_GUID {0x09576e91, 0x6d3f, 0x11d2, {0x8e, 0x39, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b}}
+#define MEDIA_DEVICE_PATH 4
+#define MEDIA_FILE_PATH 4
+
 typedef struct {
 	u8 type;
 	u8 sub_type;
@@ -375,5 +379,97 @@ typedef struct {
 	EfiMemoryType image_data_type;
 	EfiImageUnload unload;
 } EfiLoadedImageProtocol;
+
+typedef usize (EFIAPI *EfiDevicePathUtilsGetDevicePathSize) (const EfiDevicePathProtocol *device_path);
+typedef EfiDevicePathProtocol *(EFIAPI *EfiDevicePathUtilsDupDevicePath) (const EfiDevicePathProtocol *device_path);
+typedef EfiDevicePathProtocol *(EFIAPI *EfiDevicePathUtilsAppendPath) (const EfiDevicePathProtocol *src1, const EfiDevicePathProtocol *src2);
+typedef EfiDevicePathProtocol *(EFIAPI *EfiDevicePathUtilsAppendNode) (const EfiDevicePathProtocol *device_path, const EfiDevicePathProtocol *device_node);
+typedef EfiDevicePathProtocol *(EFIAPI *EfiDevicePathUtilsAppendInstance) (const EfiDevicePathProtocol *device_path, const EfiDevicePathProtocol *device_path_instance);
+typedef EfiDevicePathProtocol *(EFIAPI *EfiDevicePathUtilsGetNextInstance) (const EfiDevicePathProtocol **device_path_instance, usize *device_path_instance_size);
+typedef bool (EFIAPI *EfiDevicePathUtilsIsMultiInstance) (const EfiDevicePathProtocol *device_path);
+typedef EfiDevicePathProtocol *(EFIAPI *EfiDevicePathUtilsCreateNode) (u8 node_type, u8 node_sub_type, u16 node_length);
+
+#define EFI_DEVICE_PATH_UTILITIES_PROTOCOL_GUID {0x379be4e,0xd706,0x437d,{0xb0,0x37,0xed,0xb8,0x2f,0xb7,0x72,0xa4}}
+
+typedef struct {
+	EfiDevicePathUtilsGetDevicePathSize get_device_path_size;
+	EfiDevicePathUtilsDupDevicePath duplicate_device_path;
+	EfiDevicePathUtilsAppendPath append_device_path;
+	EfiDevicePathUtilsAppendNode append_device_node;
+	EfiDevicePathUtilsAppendInstance append_device_path_instance;
+	EfiDevicePathUtilsGetNextInstance get_next_device_path_instance;
+	EfiDevicePathUtilsIsMultiInstance is_device_path_multi_instance;
+	EfiDevicePathUtilsCreateNode create_device_node;
+} EfiDevicePathUtilitiesProtocol;
+
+struct _EfiLoadFileProtocol;
+
+typedef struct _EfiLoadFileProtocol EfiLoadFileProtocol;
+
+typedef EfiStatus (EFIAPI *EfiLoadFile) (EfiLoadFileProtocol *this, EfiDevicePathProtocol *file_path, bool boot_policy, usize *buffer_size, void *buffer);
+
+#define EFI_LOAD_FILE_PROTOCOL_GUID {0x56ec3091,0x954c,0x11d2,{0x8e,0x3f,0x00,0xa0,0xc9,0x69,0x72,0x3b}}
+//#define EFI_LOAD_FILE_PROTOCOL_GUID {0x4006c0c1,0xfcb3,0x403e,{0x99,0x6d,0x4a,0x6c,0x87,0x24,0xe0,0x6d}}
+
+struct _EfiLoadFileProtocol {
+	EfiLoadFile load_file;
+};
+
+struct _EfiFileProtocol;
+
+typedef struct _EfiFileProtocol EfiFileProtocol;
+
+#define EFI_FILE_MODE_READ 1
+
+typedef EfiStatus (EFIAPI *EfiFileOpen) (EfiFileProtocol *this, EfiFileProtocol **new_handle, u16 *file_name, u64 open_mode, u64 attributes);
+typedef EfiStatus (EFIAPI *EfiFileClose) (EfiFileProtocol *this);
+typedef EfiStatus (EFIAPI *EfiFileDelete) (EfiFileProtocol *this);
+typedef EfiStatus (EFIAPI *EfiFileRead) (EfiFileProtocol *this, usize *buffer_size, void *buffer);
+typedef EfiStatus (EFIAPI *EfiFileWrite) (EfiFileProtocol *this, usize *buffer_size, void *buffer);
+typedef EfiStatus (EFIAPI *EfiFileGetPosition) (EfiFileProtocol *this, u64 *position);
+typedef EfiStatus (EFIAPI *EfiFileSetPosition) (EfiFileProtocol *this, u64 position);
+typedef EfiStatus (EFIAPI *EfiFileGetInfo) (EfiFileProtocol *this, EfiGuid *information_type, usize *buffer_size, void *buffer);
+typedef EfiStatus (EFIAPI *EfiFileSetInfo) (EfiFileProtocol *this, EfiGuid *information_type, usize buffer_size, void *buffer);
+typedef EfiStatus (EFIAPI *EfiFileFlush) (EfiFileProtocol *this);
+
+struct _EfiFileProtocol {
+	u64 revision;
+	EfiFileOpen open;
+	EfiFileClose close;
+	EfiFileDelete delete;
+	EfiFileRead read;
+	EfiFileWrite write;
+	EfiFileGetPosition get_position;
+	EfiFileSetPosition set_position;
+	EfiFileGetInfo get_info;
+	EfiFileSetInfo set_info;
+	EfiFileFlush flush;
+};
+
+#define EFI_FILE_INFO_ID {0x09576e92,0x6d3f,0x11d2,{0x8e,0x39,0x00,0xa0,0xc9,0x69,0x72,0x3b}}
+
+typedef struct {
+	u64 size;
+	u64 file_size;
+	u64 physical_size;
+	EfiTime create_time;
+	EfiTime last_access_time;
+	EfiTime modification_time;
+	u64 attribute;
+	u16 file_name[];
+} EfiFileInfo;
+
+#define EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID {0x0964e5b22,0x6459,0x11d2,{0x8e,0x39,0x00,0xa0,0xc9,0x69,0x72,0x3b}}
+
+struct _EfiSimpleFileSystemProtocol;
+
+typedef struct _EfiSimpleFileSystemProtocol EfiSimpleFileSystemProtocol;
+
+typedef EfiStatus (EFIAPI *EfiSimpleFileSystemProtocolOpenVolume) (EfiSimpleFileSystemProtocol *this, EfiFileProtocol **out);
+
+struct _EfiSimpleFileSystemProtocol {
+	u64 revision;
+	EfiSimpleFileSystemProtocolOpenVolume open_volume;
+};
 
 #endif // _EFI_H_
