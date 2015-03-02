@@ -5,7 +5,7 @@ global _start
 global inb
 global memcpy
 
-section .text
+section .boot
 
 _start:
 	call main
@@ -13,6 +13,8 @@ _start:
 	cli
 	hlt
 	jmp .loop
+
+section .text
 
 inb:
 	xor rax, rax

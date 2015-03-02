@@ -17,11 +17,11 @@ DEPS := $(addprefix build/,$(OBJ_FILES:.o=.d))
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	#@ld -nostdlib -o $@ $^
+	@ld -O1 -nostdlib -Bsymbolic -z defs -shared -T kernel.ld -o $@ $^ ../lib/libcore.rlib
 
 build/kernel.o: $$(@D)/.dir
 	@echo "RUSTC $(TARGET)"
-	@RUST_TARGET_PATH=../lib $(RUSTC) -L ../lib --emit link,dep-info --out-dir build --target x86_64-unknown-kernel src/main.rs
+	@RUST_TARGET_PATH=../lib $(RUSTC) -C lto -O -L ../lib --emit obj,dep-info --out-dir build --target x86_64-unknown-kernel src/main.rs
 
 kernel.d: kernel.o
 
