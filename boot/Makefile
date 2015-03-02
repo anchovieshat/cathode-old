@@ -72,7 +72,7 @@ deps/%.d: src/%.c $$(@D)/.dir
 	@touch $@
 
 clean:
-	-rm -rf build deps $(TARGET)
+	-rm -rf build deps {disk,boot}.img $(TARGET)
 
 disk: disk.img
 
