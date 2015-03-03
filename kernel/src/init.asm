@@ -8,6 +8,8 @@ global memcpy
 section .boot
 
 _start:
+	mov rax, 0x500000000
+	mov qword [rax], 0xDEADBEEF
 	call main
 .loop:
 	cli

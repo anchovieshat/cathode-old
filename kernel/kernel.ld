@@ -3,6 +3,7 @@ SECTIONS {
 	. = 0;
 
 	.boot : {
+		_start
 		*(.boot)
 	}
 

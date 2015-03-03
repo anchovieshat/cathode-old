@@ -1,5 +1,5 @@
 RUSTC ?= rustc
-AS ?= yasm
+AS := yasm
 ASFLAGS := -felf64
 TARGET := kernel
 LD ?= ld

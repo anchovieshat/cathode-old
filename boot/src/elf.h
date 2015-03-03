@@ -33,4 +33,68 @@ typedef struct {
 	u64 p_align;
 } Elf64_Phdr;
 
+typedef struct {
+	u32 sh_name;
+	u32 sh_type;
+	u32 sh_flags;
+	u64 sh_addr;
+	u64 sh_offset;
+	u32 sh_size;
+	u32 sh_link;
+	u32 sh_info;
+	u64 sh_addralign;
+	u64 sh_entsize;
+} Elf64_Shdr;
+
+enum SHT_Types {
+	SHT_NULL = 0,
+	SHT_PROGBITS = 1,
+	SHT_SYMTAB = 2,
+	SHT_STRTAB = 3,
+	SHT_RELA = 4,
+	SHT_HASH = 5,
+	SHT_DYNAMIC = 6,
+	SHT_NOTES = 7,
+	SHT_NOBITS = 8,
+	SHT_REL = 9,
+	SHT_SHLIB = 10,
+	SHT_DYNSYM = 11,
+	SHT_INIT_ARRAY = 14,
+	SHT_FINI_ARRAY = 15,
+	SHT_PREINIT_ARRAY = 16,
+	SHT_GROUP = 17,
+	SHT_SYMTAB_SHNDX = 18
+};
+
+enum SHT_Flags {
+	SHT_WRITE = 0x1,
+	SHT_ALLOC = 0x2
+};
+
+enum PHT_Types {
+	PT_NULL = 0,
+	PT_LOAD = 1,
+	PT_DYNAMIC = 2,
+	PT_INTERP = 3,
+	PT_NOTE = 4,
+	PT_SHLIB = 5,
+	PT_PHDR = 6,
+	PT_TLS = 7
+};
+
+typedef struct {
+	u64 r_offset;
+	u64 r_info;
+} Elf64_Rel;
+
+#define ELF64_R_TYPE(x) ((u32)(x))
+
+#define R_X86_64_RELATIVE 8
+
+typedef struct {
+	u64 r_offset;
+	u64 r_info;
+	i64 r_addend;
+} Elf64_Rela;
+
 #endif // _ELF_H_
