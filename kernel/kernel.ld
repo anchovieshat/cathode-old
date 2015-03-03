@@ -1,3 +1,4 @@
+ENTRY(_start)
 SECTIONS {
 	. = 0;
 
@@ -8,33 +9,41 @@ SECTIONS {
 	. = ALIGN(4096);
 
 	.text : {
-		*(.text);
-		*(.text*);
+		*(.text)
+		*(.text*)
 	}
 
 	. = ALIGN(4096);
 
 	.rodata : {
-		*(.rodata);
-		*(.rodata*);
+		*(.rodata*)
 	}
 
 	. = ALIGN(4096);
 
 	.data : {
-		*(.data);
+		*(.data)
 	}
 
 	. = ALIGN(4096);
 
+	.data.rel.ro : {
+		*(.data.rel.ro*)
+	}
+
 	.eh_frame : {
-		*(.eh_frame);
+		*(.eh_frame)
 	}
 
 	. = ALIGN(4096);
 
 	.bss : {
-		*(.bss);
-		*(COMMON);
+		*(.bss)
+		*(COMMON)
+	}
+
+	/DISCARD/ : {
+		*(.comment*)
+		*(.note*)
 	}
 }
