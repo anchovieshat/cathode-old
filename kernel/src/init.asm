@@ -4,12 +4,11 @@ extern main
 global _start
 global inb
 global memcpy
+global outb
 
 section .boot
 
 _start:
-	mov rax, 0x500000000
-	mov qword [rax], 0xDEADBEEF
 	call main
 .loop:
 	cli
@@ -22,6 +21,12 @@ inb:
 	xor rax, rax
 	mov dx, di
 	in al, dx
+	ret
+
+outb:
+	mov dx, di
+	mov ax, si
+	out dx, ax
 	ret
 
 memcpy:

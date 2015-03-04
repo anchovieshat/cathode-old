@@ -1,10 +1,10 @@
-pub fn outb(port: u16, datum: u8) {
+/*pub fn outb(port: u16, datum: u8) {
     unsafe {
         asm!("outb %0, %1"
              :
              : "a"(datum), "Nd"(port));
     }
-}
+}*/
 
 /*pub fn inb(port: u16) -> u8 {
     unsafe {
@@ -18,4 +18,5 @@ pub fn outb(port: u16, datum: u8) {
 
 extern {
     pub fn inb(port: u16) -> u8;
+    pub fn outb(port: u16, datum: u8);
 }

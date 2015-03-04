@@ -2,6 +2,7 @@ bits 64
 
 global memcpy
 global wstrlen
+global testout
 
 section .text
 
@@ -31,4 +32,10 @@ memcpy:
 	rep movsb
 
 	popf
+	ret
+
+testout:
+	mov dx, 0x3F8
+	mov ax, 'a'
+	out dx, ax
 	ret

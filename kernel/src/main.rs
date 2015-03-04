@@ -7,6 +7,7 @@ extern crate core;
 
 use core::fmt::Write;
 use core::mem;
+use core::slice::SliceExt;
 
 mod lang;
 mod io;
@@ -14,10 +15,13 @@ mod dev;
 
 #[no_mangle]
 pub fn main() {
-    let uninit: u64 = unsafe { mem::uninitialized() };
     let mut sp = dev::serial::SerialPort::init(0x3F8);
-    write!(&mut sp, "Hello world {}", uninit);
-    unsafe {
-    asm!("int3");
+    write!(&mut sp, "Hello world I like bananas");
+
+    write!(&mut sp, "\n\nReached end of main - HALT");
+    loop {
+        unsafe {
+            asm!("hlt");
+        }
     }
 }

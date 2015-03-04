@@ -33,7 +33,7 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 	Elf64_Shdr *kernel_strshdr;
 	Elf64_Ehdr *kernel_hdr;
 	Elf64_Rela *rel;
-	EfiMemoryDescriptor *mmap;
+	EfiMemoryDescriptor *mmap, *mptr;
 	usize mmap_size;
 	usize mmap_ent_size;
 	u32 mmap_ent_ver;
@@ -46,6 +46,11 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 	status = sys_table->boot_services->handle_protocol(lip->device_handle, &SimpleFileSystemGUID, (void**)&sfs);
 
 	status = sfs->open_volume(sfs, &root);
+
+	printf("Port is %x\n", *(u16*)(0x0400));
+	printf("Port is %x\n", *(u16*)(0x0402));
+	printf("Port is %x\n", *(u16*)(0x0404));
+	printf("Port is %x\n", *(u16*)(0x0406));
 
 	status = root->open(root, &kernel_file, path, EFI_FILE_MODE_READ, 0);
 	printf("Open kernel: %d\n", (i32)status);
@@ -117,7 +122,6 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 				for (j = 0; j < kernel_shdr->sh_size / kernel_shdr->sh_entsize; ++j) {
 					rel = (Elf64_Rela*)(kernel+kernel_shdr->sh_offset+(j*kernel_shdr->sh_entsize));
 					if (ELF64_R_TYPE(rel->r_info) == R_X86_64_RELATIVE) {
-						printf("Doing relative relocation\n");
 						relptr = (u64*)(kernel_load+rel->r_offset);
 						*relptr = (u64)(kernel_load+rel->r_addend);
 					} else
@@ -129,10 +133,63 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 		sys_table->boot_services->get_memory_map(&mmap_size, NULL, &map_key, &mmap_ent_size, &mmap_ent_ver);
 		sys_table->boot_services->allocate_pool(EfiLoaderData, mmap_size, (void**)&mmap);
 		sys_table->boot_services->get_memory_map(&mmap_size, mmap, &map_key, &mmap_ent_size, &mmap_ent_ver);
+		for (i = 0; i < mmap_size/mmap_ent_size; ++i) {
+			mptr = (EfiMemoryDescriptor*)((char*)mmap+(i*mmap_ent_size));
+			printf("Mapping type ");
+			switch (mptr->type) {
+				case EfiReservedMemoryType:
+					printf("RESERVED");
+					break;
+				case EfiLoaderCode:
+					printf("LCODE");
+					break;
+				case EfiLoaderData:
+					printf("LDATA");
+					break;
+				case EfiBootServicesCode:
+					printf("BSCODE");
+					break;
+				case EfiBootServicesData:
+					printf("BSDATA");
+					break;
+				case EfiRuntimeServicesCode:
+					printf("RSCODE");
+					break;
+				case EfiRuntimeServicesData:
+					printf("RSDATA");
+					break;
+				case EfiConventionalMemory:
+					printf("CONVENTIONAL");
+					break;
+				case EfiUnusableMemory:
+					printf("UNUSABLE");
+					break;
+				case EfiACPIReclaimMemory:
+					printf("ACPIRECLAIM");
+					break;
+				case EfiACPIMemoryNVS:
+					printf("ACPINVS");
+					break;
+				case EfiMemoryMappedIO:
+					printf("MMIO");
+					break;
+				case EfiMemoryMappedIOPortSpace:
+					printf("MMIOPORT");
+					break;
+				case EfiPalCode:
+					printf("PALCODE");
+					break;
+				default:
+					printf("UNKNOWN!");
+					break;
+			}
+			printf(": %ld pages from 0x%lx -> 0x%lx\n", mptr->number_of_pages, mptr->virtual_start, mptr->physical_start);
+		}
 		if (sys_table->boot_services->exit_boot_services(image_handle, map_key) != EFI_SUCCESS)
 			printf("Failed to exit\n");
-		else
+		else {
 			((void (*)())(kernel_load))();
+		}
 	}
 
 	printf("Loaded at 0x%lx\n", (u64)lip->image_base);
