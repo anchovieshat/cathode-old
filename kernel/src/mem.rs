@@ -1,9 +1,3 @@
-#[repr(u8)]
-enum Page {
-    EMPTY = 0,
-    USED = 1,
-}
-
 struct chunk(u64);
 
 struct heap {
@@ -24,26 +18,38 @@ impl heap {
             size = 1;
         }
 
-        let log_size = 64 - unsafe { ctlz64(size - 1) }; //computes n in 2^n to determine smallest possible alloc space, nth level up from bottom
+        let chunk_pos = (size & (!0x3f));
+        let level = 64 - ctlz64(size - 1)
+        let pos = 0 as u64;
+        let pos_state = ((chunk >> pos) & 0x1);
 
-        let mut chunk_index = 0;
-        let mut level = 0;
-
-        loop {
-            match (self.get(index), level == log_size) {
-                (Page::EMPTY, true) => {
-                }
+        if (level == 0) {
+            while (state == 1) {
+                pos++;
+                state = ((chunk>>pos) & 0x1);
             }
+            setbit(chunk, pos, true);
+        }
+        else {
+            setbit(chunk, (pos/2), true);
+            setbit(chunk, pos, true);
+            setchildren(chunk, pos, level, true);
         }
     }
 
-    fn get(bit: u64) -> Page {
-
+    fn setbit(chunk: u64, pos: u64, state: u8) {
+        if (state == 0) {
+            (chunk & (&(0x1) << pos))
+        } else {
+            (chunk | (0x1 << pos))
+        }
     }
 
-    fn bit_translate(bit_pos: u64) -> (u64, u64) {
-        let chunk_num = (bit_pos & (!0x3f)); //  go to this chunk
-        let chunk_pos = (bit_pos & (0x3f)); // go to this bit
-        (chunk_num, chunk_pos)
+    fn setchildren(chunk: u64, pos: u64, level: u64, state: u8) {
+        if (level > -1) {
+            setchildren(chunk, (2*pos)+1, level-1, state); //right
+            setchildren(chunk, (2*pos), level-1, state); //left
+        }
+        setbit(chunk, pos, state);
     }
 }
