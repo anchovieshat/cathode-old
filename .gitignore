@@ -3,3 +3,4 @@
 *.efi
 deps/
 build/
+build.ninja

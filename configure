@@ -1,0 +1,126 @@
+#!/bin/sh
+
+OUTFILE=build.ninja
+
+msg() {
+	echo "configure: $1"
+}
+
+err() {
+	msg "error: $1"
+	exit 1
+}
+
+need_cmd() {
+	if command -v $1 >/dev/null 2>&1
+	then msg "found $1"
+	else err "need $1"
+	fi
+}
+
+write_build() {
+	echo "$1" >> $OUTFILE
+}
+
+define_rule() {
+	write_build "rule $1"; shift
+	write_build "  description = $1"; shift
+	write_build "  command = $1"; shift
+	[ -n "$1" ] && write_build "  depfile = $1"; shift
+	while [ -n "$1" ]; do
+		write_build "  $1"; shift
+	done
+	write_build ""
+}
+
+set_var() {
+	write_build "$1 = $2"
+}
+
+target() {
+	_target=$1; shift
+	_rule=$1; shift
+	_srcs=$1; shift
+	write_build "build \$builddir/$_target: $_rule $_srcs"
+	while [ -n "$1" ]; do
+		write_build "  $1"; shift
+	done
+}
+
+target_sources() {
+	var=$1; shift
+	target=$1; shift
+	rule=$1; shift;
+	sources=$(ls $1); shift
+	for src in $sources; do
+		base=`basename $src`
+		base_noext=`echo $base | awk -F. '{print $1;}'`
+		eval "$var=\"\$$var \\\$builddir/$target\""
+		target `eval echo $target` "$rule" "$src" "$@"
+	done
+}
+
+default_target() {
+	write_build "default \$builddir/$1"
+}
+
+msg "looking for build programs"
+
+need_cmd "rustc"
+need_cmd "yasm"
+need_cmd "clang"
+need_cmd "ld"
+need_cmd "objcopy"
+need_cmd "dd"
+need_cmd "parted"
+need_cmd "mkfs.vfat"
+need_cmd "mcopy"
+need_cmd "mmd"
+
+: > $OUTFILE
+
+set_var "configure_args" "$@"
+
+write_build ""
+
+set_var "builddir" "build"
+set_var "outdir" '$builddir'
+set_var "rustc" "rustc"
+set_var "as" "yasm"
+set_var "cc" "clang"
+set_var "ld" "ld"
+set_var "objcopy" "objcopy"
+set_var "rust_env" ""
+set_var "rustcflags" ""
+set_var "asflags" "-felf64"
+set_var "ldflags" ""
+
+write_build ""
+
+define_rule "configure" "CONFIGURE" './configure $configure_args' '' 'generator=1'
+define_rule "rustc" 'RUSTC $out' "\$rustenv \$rustc \$rustcflags --emit obj,dep-info --out-dir \$outdir \$in" '$dep'
+define_rule "cc" 'CC $out' '$cc $cflags -MMD -MT $out -MF $out.d -c -o $out $in' '$out.d'
+define_rule "as" 'AS $out' '$as $asflags -o $out $in'
+define_rule "ld" 'LD $out' '$ld $ldflags -o $out $in'
+define_rule "objcopy" 'OBJCOPY $out' '$objcopy $objcopyflags $in $out'
+define_rule "build_disk" "BUILD_DISK" './build_disk.sh'
+
+target 'kernel/kernel.o' 'rustc' 'kernel/src/main.rs' 'rustcflags = -C lto -O -L lib --target x86_64-unknown-kernel' 'dep=$builddir/kernel/kernel.d' 'outdir=$builddir/kernel' 'rustenv = RUST_TARGET_PATH=lib'
+target_sources 'KERN_ASM_OBJS' 'kernel/$base_noext.o' 'as' 'kernel/src/*.asm'
+target 'kernel/kernel' 'ld' "\$builddir/kernel/kernel.o $KERN_ASM_OBJS" 'ldflags=-O1 -nostdlib -Bsymbolic -z defs -shared -T kernel/kernel.ld'
+
+target_sources 'BOOT_C_OBJS' 'boot/$base_noext.o' 'cc' 'boot/src/*.c' 'cflags = -pipe -Wall -Wextra -std=c11 -fPIC -ffreestanding'
+target_sources 'BOOT_ASM_OBJS' 'boot/$base_noext.o' 'as' 'boot/src/*.asm'
+target 'boot/boot.elf' 'ld' "$BOOT_C_OBJS $BOOT_ASM_OBJS" 'ldflags = -nostdlib -znocombreloc -Bsymbolic -shared -T boot/efi.ld'
+target 'boot/boot.efi' 'objcopy' '$builddir/boot/boot.elf' 'objcopyflags = -j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel.dyn -j .rela.dyn -j .reloc -j .eh_frame --output-target efi-app-x86_64'
+
+target 'disk.img' 'build_disk'
+
+write_build 'build build.ninja: configure | configure'
+
+default_target 'kernel/kernel'
+default_target 'boot/boot.efi'
+
+write_build 'build disk: phony $builddir/disk.img'
+
+msg "wrote build.ninja"
