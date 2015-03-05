@@ -18,6 +18,16 @@ need_cmd() {
 	fi
 }
 
+need_rustlib() {
+	if [ ! -d "$RUST_PATH/src/lib$1" ]
+	then err "need lib$1 (did you give the path to Rust?)"
+	fi
+	if [ ! -e "lib/lib$1" ]; then
+		rm -d "lib/lib$1"
+		ln -s "$RUST_PATH/src/lib$1" "lib/lib$1"
+	fi
+}
+
 write_build() {
 	echo "$1" >> $OUTFILE
 }
@@ -77,6 +87,11 @@ need_cmd "mkfs.vfat"
 need_cmd "mcopy"
 need_cmd "mmd"
 
+msg "checking rust path"
+RUST_PATH=$1
+
+need_rustlib "core"
+
 : > $OUTFILE
 
 set_var "configure_args" "$@"
@@ -98,14 +113,16 @@ set_var "ldflags" ""
 write_build ""
 
 define_rule "configure" "CONFIGURE" './configure $configure_args' '' 'generator=1'
-define_rule "rustc" 'RUSTC $out' "\$rustenv \$rustc \$rustcflags --emit obj,dep-info --out-dir \$outdir \$in" '$dep'
+define_rule "rustc" 'RUSTC $out' "\$rustenv \$rustc \$rustcflags --out-dir \$outdir \$in" '$dep'
 define_rule "cc" 'CC $out' '$cc $cflags -MMD -MT $out -MF $out.d -c -o $out $in' '$out.d'
 define_rule "as" 'AS $out' '$as $asflags -o $out $in'
 define_rule "ld" 'LD $out' '$ld $ldflags -o $out $in'
 define_rule "objcopy" 'OBJCOPY $out' '$objcopy $objcopyflags $in $out'
 define_rule "build_disk" "BUILD_DISK" './build_disk.sh'
 
-target 'kernel/kernel.o' 'rustc' 'kernel/src/main.rs' 'rustcflags = -C lto -O -L lib --target x86_64-unknown-kernel' 'dep=$builddir/kernel/kernel.d' 'outdir=$builddir/kernel' 'rustenv = RUST_TARGET_PATH=lib'
+target 'lib/libcore.rlib' 'rustc' 'lib/libcore/lib.rs' 'rustcflags = --target x86_64-unknown-kernel --emit link,dep-info --crate-type rlib' 'dep=$builddir/lib/core.d' 'outdir=$builddir/lib' 'rustenv = RUST_TARGET_PATH=lib'
+
+target 'kernel/kernel.o' 'rustc' 'kernel/src/main.rs | $builddir/lib/libcore.rlib' 'rustcflags = --emit obj,dep-info -C lto -O -L lib --target x86_64-unknown-kernel' 'dep=$builddir/kernel/kernel.d' 'outdir=$builddir/kernel' 'rustenv = RUST_TARGET_PATH=lib'
 target_sources 'KERN_ASM_OBJS' 'kernel/$base_noext.o' 'as' 'kernel/src/*.asm'
 target 'kernel/kernel' 'ld' "\$builddir/kernel/kernel.o $KERN_ASM_OBJS" 'ldflags=-O1 -nostdlib -Bsymbolic -z defs -shared -T kernel/kernel.ld'
 
