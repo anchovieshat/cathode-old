@@ -23,7 +23,7 @@ typedef struct {
 	u64 r_info;
 } ElfRel;
 
-void _reloc(unsigned long image_base, ElfDyn *dyn, EfiHandle image_handle, EfiSystemTable *system_table) {
+void _reloc(unsigned long image_base, ElfDyn *dyn, __attribute__((unused)) EfiHandle image_handle, __attribute__((unused)) EfiSystemTable *system_table) {
 	unsigned long relsz, relent;
 	unsigned long *newaddr;
 	ElfRel *rel;
