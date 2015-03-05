@@ -22,8 +22,8 @@ need_rustlib() {
 	if [ ! -d "$RUST_PATH/src/lib$1" ]
 	then err "need lib$1 (did you give the path to Rust?)"
 	fi
-	if [ ! -e "lib/lib$1" ]; then
-		rm -d "lib/lib$1"
+	if [ ! -d "lib/lib$1" ]; then
+		rm -f "lib/lib$1"
 		ln -s "$RUST_PATH/src/lib$1" "lib/lib$1"
 	fi
 }
