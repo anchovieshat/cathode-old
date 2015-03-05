@@ -79,7 +79,7 @@ msg "looking for build programs"
 need_cmd "rustc"
 need_cmd "yasm"
 need_cmd "clang"
-need_cmd "ld"
+need_cmd "ld.gold"
 need_cmd "objcopy"
 need_cmd "dd"
 need_cmd "parted"
@@ -103,7 +103,7 @@ set_var "outdir" '$builddir'
 set_var "rustc" "rustc"
 set_var "as" "yasm"
 set_var "cc" "clang"
-set_var "ld" "ld"
+set_var "ld" "ld.gold"
 set_var "objcopy" "objcopy"
 set_var "rust_env" ""
 set_var "rustcflags" ""
@@ -122,9 +122,9 @@ define_rule "build_disk" "BUILD_DISK" './build_disk.sh'
 
 target 'lib/libcore.rlib' 'rustc' 'lib/libcore/lib.rs' 'rustcflags = --target x86_64-unknown-kernel --emit link,dep-info --crate-type rlib' 'dep=$builddir/lib/core.d' 'outdir=$builddir/lib' 'rustenv = RUST_TARGET_PATH=lib'
 
-target 'kernel/kernel.o' 'rustc' 'kernel/src/main.rs | $builddir/lib/libcore.rlib' 'rustcflags = --emit obj,dep-info -C lto -O -L lib --target x86_64-unknown-kernel' 'dep=$builddir/kernel/kernel.d' 'outdir=$builddir/kernel' 'rustenv = RUST_TARGET_PATH=lib'
+target 'kernel/kernel.o' 'rustc' 'kernel/src/main.rs | $builddir/lib/libcore.rlib' 'rustcflags = --emit obj,dep-info -C lto -O -L build/lib --target x86_64-unknown-kernel' 'dep=$builddir/kernel/kernel.d' 'outdir=$builddir/kernel' 'rustenv = RUST_TARGET_PATH=lib'
 target_sources 'KERN_ASM_OBJS' 'kernel/$base_noext.o' 'as' 'kernel/src/*.asm'
-target 'kernel/kernel' 'ld' "\$builddir/kernel/kernel.o $KERN_ASM_OBJS \$builddir/lib/libcore.rlib" 'ldflags=-O1 -nostdlib -Bsymbolic -z defs -shared -T kernel/kernel.ld'
+target 'kernel/kernel' 'ld' " $KERN_ASM_OBJS \$builddir/kernel/kernel.o \$builddir/lib/libcore.rlib" 'ldflags=-O1 -nostdlib -Bsymbolic -z defs -shared -T kernel/kernel.ld'
 
 target_sources 'BOOT_C_OBJS' 'boot/$base_noext.o' 'cc' 'boot/src/*.c' 'cflags = -pipe -Wall -Wextra -std=c11 -fPIC -ffreestanding'
 target_sources 'BOOT_ASM_OBJS' 'boot/$base_noext.o' 'as' 'boot/src/*.asm'
