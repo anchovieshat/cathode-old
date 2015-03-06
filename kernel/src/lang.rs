@@ -5,7 +5,7 @@ use core::fmt;
 fn eh_personality() { }
 
 #[lang="panic_fmt"]
-fn panic_fmt(fmt: fmt::Arguments, file: &'static str, line: usize) -> ! {
+extern fn panic_fmt(fmt: fmt::Arguments, file: &'static str, line: usize) -> ! {
     println!("panic: {}", fmt);
     loop {
         unsafe {
