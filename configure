@@ -120,18 +120,18 @@ define_rule "ld" 'LD $out' '$ld $ldflags -o $out $in'
 define_rule "objcopy" 'OBJCOPY $out' '$objcopy $objcopyflags $in $out'
 define_rule "build_disk" "BUILD_DISK" './build_disk.sh'
 
-target 'lib/libcore.rlib' 'rustc' 'lib/libcore/lib.rs' 'rustcflags = --target x86_64-unknown-kernel --emit link,dep-info --crate-type rlib' 'dep=$builddir/lib/core.d' 'outdir=$builddir/lib' 'rustenv = RUST_TARGET_PATH=lib'
+target 'lib/libcore.rlib' 'rustc' 'lib/libcore/lib.rs | lib/x86_64-unknown-kernel.json' 'rustcflags = --target x86_64-unknown-kernel --emit link,dep-info --crate-type rlib' 'dep=$builddir/lib/core.d' 'outdir=$builddir/lib' 'rustenv = RUST_TARGET_PATH=lib'
 
-target 'kernel/kernel.o' 'rustc' 'kernel/src/main.rs | $builddir/lib/libcore.rlib' 'rustcflags = --emit obj,dep-info -C lto -O -L build/lib --target x86_64-unknown-kernel' 'dep=$builddir/kernel/kernel.d' 'outdir=$builddir/kernel' 'rustenv = RUST_TARGET_PATH=lib'
+target 'kernel/kernel.o' 'rustc' 'kernel/src/main.rs | $builddir/lib/libcore.rlib lib/x86_64-unknown-kernel.json' 'rustcflags = --emit obj,dep-info -C lto -O -L build/lib --target x86_64-unknown-kernel' 'dep=$builddir/kernel/kernel.d' 'outdir=$builddir/kernel' 'rustenv = RUST_TARGET_PATH=lib'
 target_sources 'KERN_ASM_OBJS' 'kernel/$base_noext.o' 'as' 'kernel/src/*.asm'
-target 'kernel/kernel' 'ld' " $KERN_ASM_OBJS \$builddir/kernel/kernel.o \$builddir/lib/libcore.rlib" 'ldflags=-O1 -nostdlib -Bsymbolic -z defs -shared -T kernel/kernel.ld'
+target 'kernel/kernel' 'ld' " $KERN_ASM_OBJS \$builddir/kernel/kernel.o \$builddir/lib/libcore.rlib | kernel/kernel.ld" 'ldflags=-O1 -nostdlib -Bsymbolic -z defs -shared -T kernel/kernel.ld'
 
 target_sources 'BOOT_C_OBJS' 'boot/$base_noext.o' 'cc' 'boot/src/*.c' 'cflags = -pipe -Wall -Wextra -std=c11 -fPIC -ffreestanding'
 target_sources 'BOOT_ASM_OBJS' 'boot/$base_noext.o' 'as' 'boot/src/*.asm'
 target 'boot/boot.elf' 'ld' "$BOOT_C_OBJS $BOOT_ASM_OBJS" 'ldflags = -nostdlib -znocombreloc -Bsymbolic -shared -T boot/efi.ld'
 target 'boot/boot.efi' 'objcopy' '$builddir/boot/boot.elf' 'objcopyflags = -j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel.dyn -j .rela.dyn -j .reloc -j .eh_frame --output-target efi-app-x86_64'
 
-target 'disk.img' 'build_disk'
+target 'disk.img' 'build_disk' ' | $builddir/boot/boot.efi $builddir/kernel/kernel'
 
 write_build 'build build.ninja: configure | configure'
 
