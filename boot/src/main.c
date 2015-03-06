@@ -119,7 +119,12 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 				}
 			}
 		}
+
 		mmap_size = 0;
+        sys_table->con_out->clear_screen(sys_table->con_out);
+
+        printf("Booting the kernel...\n");
+
 		sys_table->boot_services->get_memory_map(&mmap_size, NULL, &map_key, &mmap_ent_size, &mmap_ent_ver);
 		sys_table->boot_services->allocate_pool(EfiLoaderData, mmap_size, (void**)&mmap);
 		sys_table->boot_services->get_memory_map(&mmap_size, mmap, &map_key, &mmap_ent_size, &mmap_ent_ver);
@@ -128,10 +133,6 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 			.map_size = mmap_size,
 			.map_entry_size = mmap_ent_size
 		};
-
-        sys_table->con_out->clear_screen(sys_table->con_out);
-
-        printf("Booting the kernel...\n");
 
 		if (sys_table->boot_services->exit_boot_services(image_handle, map_key) != EFI_SUCCESS)
 			printf("Failed to exit\n");
