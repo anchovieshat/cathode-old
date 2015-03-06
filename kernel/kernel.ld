@@ -24,6 +24,7 @@ SECTIONS {
 
 	.data : {
 		*(.data)
+		*(.data*)
 	}
 
 	. = ALIGN(4096);
