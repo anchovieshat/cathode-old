@@ -10,6 +10,10 @@ extern crate core;
 use core::prelude::*;
 use core::fmt::Write;
 
+macro_rules! println {
+    ($($arg:tt)*) => (unsafe { use ::core::fmt::Write; writeln!(::SP.as_mut().unwrap(), $($arg)*) })
+}
+
 mod lang;
 mod io;
 mod dev;
@@ -71,21 +75,27 @@ impl Iterator for BootProtoIter {
     }
 }
 
+static mut SP: Option<dev::serial::SerialPort> = None;
+
 #[no_mangle]
 pub fn main(bootproto: *const BootProto) {
-    let mut sp = dev::serial::SerialPort::init(0x3F8);
+    let sp = dev::serial::SerialPort::init(0x3F8);
 
-    writeln!(&mut sp, "KERNEL START");
+    unsafe {
+        SP = Some(sp);
+    }
+
+    println!("KERNEL START:");
 
     unsafe {
         let bpi = BootProtoIter { map: (*bootproto).mem_map, size: (*bootproto).map_size, ent_size: (*bootproto).map_ent_size, idx: 0};
 
         for region in bpi {
-            write!(&mut sp, "{:?} from {:x} -> {:x}\n", (*region).type_, (*region).phys_start, (*region).phys_start+((*region).npages*4096));
+            println!("{:?} from {:x} -> {:x}", (*region).type_, (*region).phys_start, (*region).phys_start+((*region).npages*4096));
         }
     }
 
-    write!(&mut sp, "\n\nReached end of main - HALT");
+    println!("\n\nReached end of main - HALT");
     loop {
         unsafe {
             asm!("hlt");
