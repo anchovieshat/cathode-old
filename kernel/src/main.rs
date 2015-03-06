@@ -95,10 +95,5 @@ pub fn main(bootproto: *const BootProto) {
         }
     }
 
-    println!("\n\nReached end of main - HALT");
-    loop {
-        unsafe {
-            asm!("hlt");
-        }
-    }
+    panic!("End of main reached");
 }
