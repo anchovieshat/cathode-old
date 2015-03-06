@@ -36,8 +36,8 @@ define_rule() {
 	write_build "rule $1"; shift
 	write_build "  description = $1"; shift
 	write_build "  command = $1"; shift
-	[ -n "$1" ] && write_build "  depfile = $1"; shift
-	while [ -n "$1" ]; do
+	[ -n "$1" ] && write_build "  depfile = $1"; [ "$#" -gt 0 ] && shift
+	while [ "$#" -gt 0 ] && [ -n "$1" ]; do
 		write_build "  $1"; shift
 	done
 	write_build ""
@@ -50,9 +50,9 @@ set_var() {
 target() {
 	_target=$1; shift
 	_rule=$1; shift
-	_srcs=$1; shift
+	_srcs=$1; [ "$#" -gt 0 ] && shift
 	write_build "build \$builddir/$_target: $_rule $_srcs"
-	while [ -n "$1" ]; do
+	while [ "$#" -gt 0 ] && [ -n "$1" ]; do
 		write_build "  $1"; shift
 	done
 }

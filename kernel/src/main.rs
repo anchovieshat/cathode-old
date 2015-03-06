@@ -15,12 +15,15 @@ macro_rules! println {
 }
 
 mod lang;
-mod io;
+pub mod io;
 mod dev;
+mod mem2;
 
 #[allow(dead_code)]
 #[repr(u32)]
 #[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(Eq)]
 enum EfiMemoryType {
 	EfiReservedMemoryType,
 	EfiLoaderCode,
@@ -62,6 +65,8 @@ struct BootProtoIter {
     idx: u64,
 }
 
+pub static mut SP: Option<dev::serial::SerialPort> = None;
+
 impl Iterator for BootProtoIter {
     type Item = *const EfiMemoryDescriptor;
     fn next(&mut self) -> Option<*const EfiMemoryDescriptor> {
@@ -75,25 +80,79 @@ impl Iterator for BootProtoIter {
     }
 }
 
-static mut SP: Option<dev::serial::SerialPort> = None;
-
 #[no_mangle]
 pub fn main(bootproto: *const BootProto) {
     let sp = dev::serial::SerialPort::init(0x3F8);
-
     unsafe {
         SP = Some(sp);
     }
 
-    println!("KERNEL START:");
+    println!("KERNEL START");
+    //panic!();
+
+    let mut max_rg_sz = 0usize;
+    let mut max_rg_ptr = 0usize;
 
     unsafe {
         let bpi = BootProtoIter { map: (*bootproto).mem_map, size: (*bootproto).map_size, ent_size: (*bootproto).map_ent_size, idx: 0};
 
         for region in bpi {
-            println!("{:?} from {:x} -> {:x}", (*region).type_, (*region).phys_start, (*region).phys_start+((*region).npages*4096));
+            println!("{:?} from {:x} -> {:x} (sz {:x})", (*region).type_, (*region).phys_start, (*region).phys_start+((*region).npages*4096), (*region).npages*4096);
+            if((*region).type_ == EfiMemoryType::EfiConventionalMemory && ((*region).npages*4096) as usize > max_rg_sz) {
+                max_rg_sz = ((*region).npages*4096) as usize;
+                max_rg_ptr = (*region).phys_start as usize;
+            }
         }
     }
 
-    panic!("End of main reached");
+    let maxmem = unsafe {
+        let bpi = BootProtoIter { map: (*bootproto).mem_map, size: (*bootproto).map_size, ent_size: (*bootproto).map_ent_size, idx:0 };
+        let last = bpi.last().unwrap();
+        ((*last).phys_start+((*last).npages*4096)) as usize
+    };
+
+    println!("maxmem is {:x}", maxmem);
+
+    let mut heap = mem2::Heap::new(maxmem, max_rg_ptr, max_rg_sz);
+    let mut pg5 = 0;
+    println!("Heap testing: ");
+    for i in (0..15) {
+        println!("Allocating span of 1024 pages (4M)...");
+        match heap.alloc_pages(1024) {
+            Some(page) => {
+                println!("...success, allocated page {:x} at {:x}", page, page << 12);
+                if i == 5 {
+                    pg5 = page;
+                };
+            },
+            None => {
+                println!("...failed (out of memory?)");
+            }
+        };
+    }
+
+    println!("Deallocating allocation 5 (page {:x} at {:x})...", pg5, pg5 << 12);
+
+    heap.clear_used_range(pg5, 1024);
+
+    println!("Allocating a 2048 (8M) span (order 11)...");
+
+    match heap.alloc_pages(2048) {
+        Some(page) => println!("...success, allocated page {:x} at {:x}", page, page << 12),
+        None => println!("...failed."),
+    };
+
+    println!("Allocating one more 1024 (4M) span (order 10)...");
+    
+    match heap.alloc_pages(1024) {
+        Some(page) => println!("...success, allocated page {:x} at {:x}", page, page << 12),
+        None => println!("...failed."),
+    };
+
+    panic!("\n\nReached end of main - HALT");
+    loop {
+        unsafe {
+            asm!("hlt");
+        }
+    }
 }

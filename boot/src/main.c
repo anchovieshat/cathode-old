@@ -95,9 +95,17 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 			}
 		}
 
-        status = sys_table->boot_services->allocate_pages(AllocateMaxAddress, EfiLoaderData, ((kernel_info->file_size+4095) & ~4095)/4096, &kernel_load);
+        status = sys_table->boot_services->allocate_pages(AllocateMaxAddress, EfiLoaderData, (((kernel_info->file_size+4095) & ~4095)/4096)+64, &kernel_load);
 
-		printf("Allocated kernel at 0x%lx: %d\n", kernel_load, (i32)status);
+		printf("Allocated kernel at 0x%lx (to 0x%lx): %d\n", kernel_load, kernel_load+(((kernel_info->file_size+4095) & ~4095)), (i32)status);
+
+		for (i = 1; i < kernel_hdr->e_shnum; i++) {
+			kernel_shdr = (Elf64_Shdr*)(kernel+kernel_hdr->e_shoff+(i*kernel_hdr->e_shentsize));
+			if (kernel_shdr->sh_type == SHT_PROGBITS) {
+					printf("Copy to %lx from %lx size %lx\n", (void*)kernel_load+kernel_shdr->sh_addr, kernel+kernel_shdr->sh_offset, kernel_shdr->sh_size);
+					memcpy((void*)kernel_load+kernel_shdr->sh_addr, kernel+kernel_shdr->sh_offset, kernel_shdr->sh_size);
+			}
+		}
 
 		for (i = 1; i < kernel_hdr->e_phnum; ++i) {
 			kernel_phdr = (Elf64_Phdr*)(kernel+kernel_hdr->e_phoff+(i*kernel_hdr->e_phentsize));
@@ -112,11 +120,16 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 				for (j = 0; j < kernel_shdr->sh_size / kernel_shdr->sh_entsize; ++j) {
 					rel = (Elf64_Rela*)(kernel+kernel_shdr->sh_offset+(j*kernel_shdr->sh_entsize));
 					if (ELF64_R_TYPE(rel->r_info) == R_X86_64_RELATIVE) {
+						if ((u64)relptr > (u64)((char*)kernel_load)+(4096*((kernel_info->file_size+4095) & ~4095))) {
+								printf("Reloc past kernel end\n");
+						}
 						relptr = (u64*)(kernel_load+rel->r_offset);
 						*relptr = (u64)(kernel_load+rel->r_addend);
 					} else
 						printf("Relocation type 0x%x at 0x%lx\n", ELF64_R_TYPE(rel->r_info), rel->r_offset);
 				}
+			} else if (kernel_shdr->sh_type == SHT_REL) {
+					printf("BAD TOUCHING :(\n");
 			}
 		}
 
@@ -134,8 +147,8 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 			.map_entry_size = mmap_ent_size
 		};
 
-		if (sys_table->boot_services->exit_boot_services(image_handle, map_key) != EFI_SUCCESS)
-			printf("Failed to exit\n");
+		if ((status = sys_table->boot_services->exit_boot_services(image_handle, map_key)) != EFI_SUCCESS)
+			printf("Failed to exit %d\n", (u32)status);
 		else {
 			((void (*)(BootProtocol*))(kernel_load))(&bootproto);
 		}
