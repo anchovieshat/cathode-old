@@ -17,7 +17,7 @@ macro_rules! println {
 mod lang;
 pub mod io;
 mod dev;
-mod mem2;
+mod mem;
 
 #[allow(dead_code)]
 #[repr(u32)]
@@ -113,7 +113,7 @@ pub fn main(bootproto: *const BootProto) {
 
     println!("maxmem is {:x}", maxmem);
 
-    let mut heap = mem2::Heap::new(maxmem, max_rg_ptr, max_rg_sz);
+    let mut heap = mem::Heap::new(maxmem, max_rg_ptr, max_rg_sz);
     let mut pg5 = 0;
     println!("Heap testing: ");
     for i in (0..15) {
@@ -143,7 +143,7 @@ pub fn main(bootproto: *const BootProto) {
     };
 
     println!("Allocating one more 1024 (4M) span (order 10)...");
-    
+
     match heap.alloc_pages(1024) {
         Some(page) => println!("...success, allocated page {:x} at {:x}", page, page << 12),
         None => println!("...failed."),
