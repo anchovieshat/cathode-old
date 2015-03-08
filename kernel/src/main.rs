@@ -11,7 +11,7 @@ use core::prelude::*;
 use core::fmt::Write;
 
 macro_rules! println {
-    ($($arg:tt)*) => (unsafe { use ::core::fmt::Write; writeln!(::SP.as_mut().unwrap(), $($arg)*) })
+    ($($arg:tt)*) => (::io::println_formatted(format_args!($($arg)*)))
 }
 
 mod lang;
@@ -97,7 +97,7 @@ pub fn main(bootproto: *const BootProto) {
 
         for region in bpi {
             println!("{:?} from {:x} -> {:x} (sz {:x})", (*region).type_, (*region).phys_start, (*region).phys_start+((*region).npages*4096), (*region).npages*4096);
-            if((*region).type_ == EfiMemoryType::EfiConventionalMemory && ((*region).npages*4096) as usize > max_rg_sz) {
+            if (*region).type_ == EfiMemoryType::EfiConventionalMemory && ((*region).npages*4096) as usize > max_rg_sz {
                 max_rg_sz = ((*region).npages*4096) as usize;
                 max_rg_ptr = (*region).phys_start as usize;
             }

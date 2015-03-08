@@ -83,7 +83,7 @@ impl Heap {
         let order = order_of(pages);
         let mut heap = Heap {order: order, chunks: heap_rg as *mut Chunk};
         let tabsz = heap.size();
-        
+
         println!("Pages: {:x}", pages);
         println!("Order: {}", order);
         println!("Tabsz: {}kB", tabsz/1024);
@@ -91,7 +91,7 @@ impl Heap {
         if tabsz > heap_sz {
             panic!("Out of memory ({:x} > {:x})", tabsz, heap_sz);
         }
-        
+
         heap.clear();
         heap
     }
@@ -119,8 +119,10 @@ impl Heap {
         unsafe { self.chunk_slice()[bit>>6].clear_bit((bit & 63) as u8) };
     }
     fn test_bit(&self, bit: usize) -> bool {
-        println!("memdbg: Testing chunk at {} (={:x}) for bit {}...", bit>>6, self.chunk_slice()[bit>>6], bit & 63);
-        unsafe { self.chunk_slice()[bit>>6].test_bit((bit & 63) as u8) }
+        unsafe {
+            println!("memdbg: Testing chunk at {} (={:x}) for bit {}...", bit>>6, self.chunk_slice()[bit>>6], bit & 63);
+            self.chunk_slice()[bit>>6].test_bit((bit & 63) as u8)
+        }
     }
     // TODO: More efficient implementation
     fn set_bit_span(&mut self, bit: usize, span: usize) {
@@ -141,15 +143,15 @@ impl Heap {
         let chunks = unsafe { self.chunk_slice() };
         let _idx = self.pg_order_to_bit(pg, order);
         let mut idx = _idx;
-        while(idx > 1) {
+        while idx > 1 {
             self.set_bit(idx);
             idx = idx / 2;
         }
-        if(order > 0) {
+        if order > 0 {
             idx = self.pg_order_to_bit(pg, order);
             let mut span = 1;
             let mut ord = order;
-            while(ord > 0) {
+            while ord > 0 {
                 span = span << 1;
                 idx = idx << 1;
                 ord = ord - 1;
@@ -160,17 +162,17 @@ impl Heap {
     fn clear_used_order(&mut self, pg: usize, order: usize) {
         let chunks = unsafe { self.chunk_slice() };
         let mut idx = self.pg_order_to_bit(pg, order);
-        while(idx > 1) {
+        while idx > 1 {
             self.clear_bit(idx);
             idx = idx / 2;
             let buddy = idx ^ 1;
             if self.test_bit(buddy) { break; }
         }
-        if(order > 0) {
+        if order > 0 {
             idx = self.pg_order_to_bit(pg, order);
             let mut span = 1;
             let mut ord = order;
-            while(ord > 0) {
+            while ord > 0 {
                 span = span << 1;
                 idx = idx << 1;
                 ord = ord - 1;
@@ -196,7 +198,7 @@ impl Heap {
     // TODO: Also more efficiency
     pub fn alloc_pages(&mut self, num: usize) -> Option<usize> {
         let order = order_of(num);
-        let fbit = (1 << (self.order - order - 1));
+        let fbit = 1 << (self.order - order - 1);
         let lbit = (1 << (self.order - order)) - 1;
         println!("memdbg: Scanning the order {} bitmap (bits {}-{})", order, fbit, lbit);
         for bit in (fbit..lbit) {

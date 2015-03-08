@@ -1,22 +1,11 @@
-use core::ptr::PtrExt;
+use core::fmt;
+use core::fmt::Write;
 
-/*pub fn outb(port: u16, datum: u8) {
+pub fn println_formatted(fmt: fmt::Arguments) {
     unsafe {
-        asm!("outb %0, %1"
-             :
-             : "a"(datum), "Nd"(port));
+        writeln!(::SP.as_mut().unwrap(), "{}", fmt);
     }
-}*/
-
-/*pub fn inb(port: u16) -> u8 {
-    unsafe {
-        let mut ret: u8 = mem::uninitialized();
-        asm!("inb %1, %0"
-             : "=a"(ret)
-             : "Nd"(port));
-        return ret;
-    }
-}*/
+}
 
 extern {
     pub fn inb(port: u16) -> u8;
