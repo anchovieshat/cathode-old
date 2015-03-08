@@ -124,7 +124,7 @@ target 'lib/libcore.rlib' 'rustc' 'lib/libcore/lib.rs | lib/x86_64-unknown-kerne
 
 target 'kernel/kernel.o' 'rustc' 'kernel/src/main.rs | $builddir/lib/libcore.rlib lib/x86_64-unknown-kernel.json' 'rustcflags = --emit obj,dep-info -C lto -O -L build/lib --target x86_64-unknown-kernel' 'dep=$builddir/kernel/kernel.d' 'outdir=$builddir/kernel' 'rustenv = RUST_TARGET_PATH=lib'
 target_sources 'KERN_ASM_OBJS' 'kernel/$base_noext.o' 'as' 'kernel/src/*.asm'
-target 'kernel/kernel' 'ld' " $KERN_ASM_OBJS \$builddir/kernel/kernel.o \$builddir/lib/libcore.rlib | kernel/kernel.ld" 'ldflags=-O1 --gc-sections -nostdlib -Bsymbolic -z defs -shared -T kernel/kernel.ld'
+target 'kernel/kernel' 'ld' " $KERN_ASM_OBJS \$builddir/kernel/kernel.o \$builddir/lib/libcore.rlib | kernel/kernel.ld" 'ldflags=-O1 --gc-sections -nostdlib -Bsymbolic -z defs -T kernel/kernel.ld'
 
 target_sources 'BOOT_C_OBJS' 'boot/$base_noext.o' 'cc' 'boot/src/*.c' 'cflags = -pipe -Wall -Wextra -std=c11 -fPIC -ffreestanding'
 target_sources 'BOOT_ASM_OBJS' 'boot/$base_noext.o' 'as' 'boot/src/*.asm'

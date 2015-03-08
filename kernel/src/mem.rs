@@ -140,7 +140,6 @@ impl Heap {
         (1 << (self.order - order - 1)) + (pg >> order)
     }
     fn set_used_order(&mut self, pg: usize, order: usize) {
-        let chunks = unsafe { self.chunk_slice() };
         let _idx = self.pg_order_to_bit(pg, order);
         let mut idx = _idx;
         while idx > 1 {
@@ -160,7 +159,6 @@ impl Heap {
         }
     }
     fn clear_used_order(&mut self, pg: usize, order: usize) {
-        let chunks = unsafe { self.chunk_slice() };
         let mut idx = self.pg_order_to_bit(pg, order);
         while idx > 1 {
             self.clear_bit(idx);
@@ -221,6 +219,12 @@ impl Heap {
     pub fn phyalloc(&mut self, bytes: usize) -> Option<PageSlice> {
         match self.alloc_pages(sz_to_pg(bytes)) {
             Some(page) => Some(PageSlice {page: page, order: sz_to_pg(bytes)}),
+            None => None
+        }
+    }
+    pub fn phyallocp(&mut self, pages: usize) -> Option<PageSlice> {
+        match self.alloc_pages(pages) {
+            Some(page) => Some(PageSlice {page: page, order: order_of(pages) }),
             None => None
         }
     }

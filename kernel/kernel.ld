@@ -1,6 +1,12 @@
 ENTRY(_start)
+MEMORY {
+	kernel : org = 0xffffffffc0000000, len = 0x3fffffff
+}
 SECTIONS {
-	. = 0;
+
+	. = ORIGIN(kernel) + SIZEOF_HEADERS;
+
+	. = ALIGN(4096);
 
 	.boot : {
 		_start
@@ -33,6 +39,8 @@ SECTIONS {
 		*(.data.rel.ro*)
 	}
 
+	. = ALIGN(4096);
+
 	.eh_frame : {
 		*(.eh_frame)
 	}
@@ -42,6 +50,12 @@ SECTIONS {
 	.bss : {
 		*(.bss)
 		*(COMMON)
+	}
+
+	. = ALIGN(4096);
+
+	.rela : {
+		*(.rela*)
 	}
 
 	/DISCARD/ : {

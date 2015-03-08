@@ -2,7 +2,7 @@
 #include "elf.h"
 #include "io.h"
 
-#define KERNEL_MAX_LOAD_ADDR 0x400000000
+#define KERNEL_MAX_LOAD_ADDR 0x1000000
 
 EfiSystemTable *ST;
 
@@ -26,7 +26,7 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 	EfiFileProtocol *root, *kernel_file;
 	EfiStatus status;
 	u16 *path = u"\\kernel.elf";
-    EfiFileInfo *kernel_info;
+	EfiFileInfo *kernel_info;
 	usize kernel_info_size = 0;
 	u64 kernel_addr = KERNEL_MAX_LOAD_ADDR;
 	char *kernel;
@@ -66,7 +66,7 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 
 	status = kernel_file->get_info(kernel_file, &FileInfoGUID, &kernel_info_size, NULL);
 
-    sys_table->boot_services->allocate_pool(EfiLoaderData, kernel_info_size, (void**)&kernel_info);
+	sys_table->boot_services->allocate_pool(EfiLoaderData, kernel_info_size, (void**)&kernel_info);
 
 	status = kernel_file->get_info(kernel_file, &FileInfoGUID, &kernel_info_size, kernel_info);
 
@@ -76,7 +76,7 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 	status = kernel_file->read(kernel_file, &kernel_info->file_size, (void*)kernel_addr);
 	status = kernel_file->close(kernel_file);
 
-    kernel = (char*)kernel_addr;
+	kernel = (char*)kernel_addr;
 
 	if (kernel[0] == 0x7f && kernel[1] == 'E' && kernel[2] == 'L' && kernel[3] == 'F') {
 		kernel_hdr = (Elf64_Ehdr*)kernel;
@@ -117,7 +117,7 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 					rel = (Elf64_Rela*)(kernel+kernel_shdr->sh_offset+(j*kernel_shdr->sh_entsize));
 					if (ELF64_R_TYPE(rel->r_info) == R_X86_64_RELATIVE) {
 						if ((u64)relptr > (u64)((char*)kernel_load)+(4096*((kernel_info->file_size+4095) & ~4095))) {
-								printf("Reloc past kernel end\n");
+							printf("Reloc past kernel end\n");
 						}
 						relptr = (u64*)(kernel_load+rel->r_offset);
 						*relptr = (u64)(kernel_load+rel->r_addend);
@@ -134,9 +134,9 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 		}
 
 		mmap_size = 0;
-        sys_table->con_out->clear_screen(sys_table->con_out);
+		sys_table->con_out->clear_screen(sys_table->con_out);
 
-        printf("Booting the kernel...\n");
+		printf("Booting the kernel...\n");
 
 		sys_table->boot_services->get_memory_map(&mmap_size, NULL, &map_key, &mmap_ent_size, &mmap_ent_ver);
 		sys_table->boot_services->allocate_pool(EfiLoaderData, mmap_size, (void**)&mmap);
