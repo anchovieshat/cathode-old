@@ -97,7 +97,7 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 			}
 		}
 
-        status = sys_table->boot_services->allocate_pages(AllocateMaxAddress, EfiLoaderData, (((kernel_info->file_size+4095) & ~4095)/4096)+64, &kernel_load);
+		status = sys_table->boot_services->allocate_pages(AllocateMaxAddress, EfiLoaderData, (((kernel_info->file_size+4095) & ~4095)/4096)+64, &kernel_load);
 		if (status != EFI_SUCCESS)
 			goto fail;
 
@@ -107,23 +107,6 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 			kernel_phdr = (Elf64_Phdr*)(kernel+kernel_hdr->e_phoff+(i*kernel_hdr->e_phentsize));
 			if (kernel_phdr->p_type == PT_LOAD) {
 				memcpy((void*)kernel_load+kernel_phdr->p_vaddr, kernel+kernel_phdr->p_offset, kernel_phdr->p_filesz);
-			}
-		}
-		for (i = 1; i < kernel_hdr->e_shnum; i++) {
-			kernel_shdr = (Elf64_Shdr*)(kernel+kernel_hdr->e_shoff+(i*kernel_hdr->e_shentsize));
-			if (kernel_shdr->sh_type == SHT_RELA) {
-				printf("%ld relocations\n", kernel_shdr->sh_size / kernel_shdr->sh_entsize);
-				for (j = 0; j < kernel_shdr->sh_size / kernel_shdr->sh_entsize; ++j) {
-					rel = (Elf64_Rela*)(kernel+kernel_shdr->sh_offset+(j*kernel_shdr->sh_entsize));
-					if (ELF64_R_TYPE(rel->r_info) == R_X86_64_RELATIVE) {
-						if ((u64)relptr > (u64)((char*)kernel_load)+(4096*((kernel_info->file_size+4095) & ~4095))) {
-							printf("Reloc past kernel end\n");
-						}
-						relptr = (u64*)(kernel_load+rel->r_offset);
-						*relptr = (u64)(kernel_load+rel->r_addend);
-					} else
-						printf("Relocation type 0x%x at 0x%lx\n", ELF64_R_TYPE(rel->r_info), rel->r_offset);
-				}
 			}
 		}
 
