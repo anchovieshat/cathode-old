@@ -98,6 +98,8 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 		}
 
         status = sys_table->boot_services->allocate_pages(AllocateMaxAddress, EfiLoaderData, (((kernel_info->file_size+4095) & ~4095)/4096)+64, &kernel_load);
+		if (status != EFI_SUCCESS)
+			goto fail;
 
 		printf("Allocated kernel at 0x%lx (to 0x%lx): %d\n", kernel_load, kernel_load+(((kernel_info->file_size+4095) & ~4095)), (i32)status);
 
@@ -122,13 +124,14 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 					} else
 						printf("Relocation type 0x%x at 0x%lx\n", ELF64_R_TYPE(rel->r_info), rel->r_offset);
 				}
-			} else if (kernel_shdr->sh_type == SHT_REL) {
-					printf("BAD TOUCHING :(\n");
 			}
 		}
 
 		status = sys_table->boot_services->allocate_pages(AllocateAnyPages, EfiLoaderData, 512, &kernel_stack);
 		printf("Allocated kernel stack at 0x%lx", (u64)kernel_stack);
+		if (status != EFI_SUCCESS) {
+			goto fail;
+		}
 
 		mmap_size = 0;
         sys_table->con_out->clear_screen(sys_table->con_out);
@@ -148,9 +151,12 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 		if ((status = sys_table->boot_services->exit_boot_services(image_handle, map_key)) != EFI_SUCCESS)
 			printf("Failed to exit %d\n", (u32)status);
 		else {
-			((void (*)(BootProtocol*,void*))(kernel_load))(&bootproto, (void*)kernel_stack);
+			((void (*)(BootProtocol*,void*))(kernel_load))(&bootproto, (void*)(kernel_stack+(512*4096)));
 		}
 	}
+fail:
+
+	printf("Failed to boot\n");
 
 	printf("\n\nPress any key to poweroff\n");
 
