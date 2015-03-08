@@ -1,25 +1,24 @@
-Cathode
-=======
+# Cathode
 
-Building Cathode on Linux
-=========================
+## Building Cathode on Linux
 
 1. Install all dependencies:
-	* Rust
-	* yasm
-	* clang
-	* ld.gold
-	* objcopy
-	* dd
-	* parted
-	* mkfs.vfat
-	* mcopy
-	* mmd
-	* ninja
-	* ovmf
-	* qemu
+	* `rustc`
+	* `yasm`
+	* `clang`
+	* `ld.gold`
+	* `objcopy`
+	* `dd`
+	* `parted`
+	* `mkfs.vfat`
+	* `mcopy`
+	* `mmd`
+	* `ninja`
+	* `ovmf`
+	* `qemu`
 
-2. Clone Rust source
+2. Clone Rust [source]
+[source]: https://github.com/rust-lang/rust
 
 3. Build and Install:
 	```sh
