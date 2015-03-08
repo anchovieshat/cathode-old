@@ -3,8 +3,9 @@ bits 64
 extern main
 global _start
 global inb
-global memcpy
 global outb
+global memcpy
+global memset
 
 section .boot
 
@@ -32,4 +33,13 @@ outb:
 memcpy:
 	mov rcx, rdx
 	rep movsb
+	ret
+
+memset:
+	mov rax, rsi
+	mov rcx, rdx
+	rep stosb
+
+	mov rax, rdi
+
 	ret
