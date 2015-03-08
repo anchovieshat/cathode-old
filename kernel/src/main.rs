@@ -110,7 +110,7 @@ pub fn main(bootproto: *const BootProto) {
         ((*last).phys_start+((*last).npages*4096)) as usize
     };
 
-    println!("maxmem is {:x}", maxmem);
+    println!("maxmem is {:x} ({} MB)", maxmem, maxmem/1024/1024);
 
     let mut heap = mem::Heap::new(maxmem, max_rg_ptr, max_rg_sz);
     let mut pg5 = 0;
