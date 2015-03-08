@@ -4,3 +4,4 @@
 deps/
 build/
 build.ninja
+lib/lib*
