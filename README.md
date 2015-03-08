@@ -22,7 +22,7 @@
 	```sh
 	$ ./configure /path/to/rust/source
 	$ ninja disk
-	$ qemu-system-x86_64 -bios /usr/share/ovmf/ovmf_x86.bin -m 512 -serial stdio disk.img
+	$ qemu-system-x86_64 -bios /usr/share/ovmf/ovmf_x86.bin -m 512 -serial stdio build/disk.img
 	```
 
 Currently tested on Arch Linux
