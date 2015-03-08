@@ -22,8 +22,10 @@ Building Cathode on Linux
 2. Clone Rust source
 
 3. Build and Install:
-	'$ ./configure /path/to/rust/source'
-	'$ 'ninja disk'
-	'$ qemu-system-x86_64 -bios /usr/share/ovmf/ovmf_x86.bin -m 512 -serial stdio disk.img'
+	```sh
+	$ ./configure /path/to/rust/source
+	$ ninja disk
+	$ qemu-system-x86_64 -bios /usr/share/ovmf/ovmf_x86.bin -m 512 -serial stdio disk.img
+	```
 
 Currently tested on Arch Linux
