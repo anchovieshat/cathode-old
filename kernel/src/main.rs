@@ -88,7 +88,6 @@ pub fn main(bootproto: *const BootProto) {
     }
 
     println!("KERNEL START");
-    //panic!();
 
     let mut max_rg_sz = 0usize;
     let mut max_rg_ptr = 0usize;
@@ -149,10 +148,5 @@ pub fn main(bootproto: *const BootProto) {
         None => println!("...failed."),
     };
 
-    panic!("\n\nReached end of main - HALT");
-    loop {
-        unsafe {
-            asm!("hlt");
-        }
-    }
+    panic!("Reached end of main");
 }
