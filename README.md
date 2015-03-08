@@ -10,9 +10,7 @@
 	* `objcopy`
 	* `dd`
 	* `parted`
-	* `mkfs.vfat`
-	* `mcopy`
-	* `mmd`
+	* `mtools`
 	* `ninja`
 	* `ovmf`
 	* `qemu`
