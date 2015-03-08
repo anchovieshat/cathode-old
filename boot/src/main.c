@@ -14,6 +14,7 @@ extern u64 wstrlen(const u16 *);
 extern void *memcpy(void *, const void *, u64);
 
 typedef struct {
+	u64 kernel_base;
 	EfiMemoryDescriptor *memory_map;
 	u64 map_size;
 	u64 map_entry_size;
@@ -32,6 +33,7 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 	u64 i, j, idx;
 	u64 ksize = 0;
 	u64 kernel_load = KERNEL_MAX_LOAD_ADDR;
+	u64 kernel_stack;
 	u64 *relptr;
 	Elf64_Phdr *kernel_phdr;
 	Elf64_Shdr *kernel_shdr;
@@ -99,14 +101,6 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 
 		printf("Allocated kernel at 0x%lx (to 0x%lx): %d\n", kernel_load, kernel_load+(((kernel_info->file_size+4095) & ~4095)), (i32)status);
 
-		for (i = 1; i < kernel_hdr->e_shnum; i++) {
-			kernel_shdr = (Elf64_Shdr*)(kernel+kernel_hdr->e_shoff+(i*kernel_hdr->e_shentsize));
-			if (kernel_shdr->sh_type == SHT_PROGBITS) {
-					printf("Copy to %lx from %lx size %lx\n", (void*)kernel_load+kernel_shdr->sh_addr, kernel+kernel_shdr->sh_offset, kernel_shdr->sh_size);
-					memcpy((void*)kernel_load+kernel_shdr->sh_addr, kernel+kernel_shdr->sh_offset, kernel_shdr->sh_size);
-			}
-		}
-
 		for (i = 1; i < kernel_hdr->e_phnum; ++i) {
 			kernel_phdr = (Elf64_Phdr*)(kernel+kernel_hdr->e_phoff+(i*kernel_hdr->e_phentsize));
 			if (kernel_phdr->p_type == PT_LOAD) {
@@ -133,6 +127,9 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 			}
 		}
 
+		status = sys_table->boot_services->allocate_pages(AllocateAnyPages, EfiLoaderData, 512, &kernel_stack);
+		printf("Allocated kernel stack at 0x%lx", (u64)kernel_stack);
+
 		mmap_size = 0;
         sys_table->con_out->clear_screen(sys_table->con_out);
 
@@ -142,6 +139,7 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 		sys_table->boot_services->allocate_pool(EfiLoaderData, mmap_size, (void**)&mmap);
 		sys_table->boot_services->get_memory_map(&mmap_size, mmap, &map_key, &mmap_ent_size, &mmap_ent_ver);
 		BootProtocol bootproto = {
+			.kernel_base = (u64)kernel_load,
 			.memory_map = mmap,
 			.map_size = mmap_size,
 			.map_entry_size = mmap_ent_size
@@ -150,7 +148,7 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 		if ((status = sys_table->boot_services->exit_boot_services(image_handle, map_key)) != EFI_SUCCESS)
 			printf("Failed to exit %d\n", (u32)status);
 		else {
-			((void (*)(BootProtocol*))(kernel_load))(&bootproto);
+			((void (*)(BootProtocol*,void*))(kernel_load))(&bootproto, (void*)kernel_stack);
 		}
 	}
 

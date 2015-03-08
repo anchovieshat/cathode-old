@@ -6,6 +6,7 @@ global _start
 section .boot
 
 _start:
+	mov rsp, rsi
 	call main
 .loop:
 	cli

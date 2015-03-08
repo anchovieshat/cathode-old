@@ -15,7 +15,7 @@ macro_rules! println {
 }
 
 mod lang;
-pub mod io;
+mod io;
 mod dev;
 mod mem;
 mod gdt;
@@ -54,6 +54,7 @@ struct EfiMemoryDescriptor {
 
 #[repr(C)]
 pub struct BootProto {
+    kernel_base: u64,
     mem_map: *const EfiMemoryDescriptor,
     map_size: u64,
     map_ent_size: u64
@@ -83,8 +84,8 @@ impl Iterator for BootProtoIter {
 
 #[no_mangle]
 pub fn main(bootproto: *const BootProto) {
-    let sp = dev::serial::SerialPort::init(0x3F8);
     unsafe {
+        let sp = dev::serial::SerialPort::init(0x3F8);
         SP = Some(sp);
     }
 
