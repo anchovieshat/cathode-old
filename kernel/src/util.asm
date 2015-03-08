@@ -1,9 +1,12 @@
 bits 64
 
+default rel
+
 global inb
 global outb
 global memcpy
 global memset
+global load_gdt
 
 section .text
 

@@ -107,7 +107,7 @@ set_var "ld" "ld.gold"
 set_var "objcopy" "objcopy"
 set_var "rust_env" ""
 set_var "rustcflags" ""
-set_var "asflags" "-felf64"
+set_var "asflags" "-felf64 -w -mamd64"
 set_var "ldflags" ""
 
 write_build ""

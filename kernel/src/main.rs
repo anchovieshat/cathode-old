@@ -18,7 +18,6 @@ mod lang;
 mod io;
 mod dev;
 mod mem;
-mod gdt;
 
 #[allow(dead_code)]
 #[repr(u32)]
@@ -88,8 +87,6 @@ pub fn main(bootproto: *const BootProto) {
         let sp = dev::serial::SerialPort::init(0x3F8);
         SP = Some(sp);
     }
-
-    gdt::init();
 
     println!("KERNEL START");
 
