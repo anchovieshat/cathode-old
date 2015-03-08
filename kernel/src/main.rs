@@ -18,6 +18,7 @@ mod lang;
 pub mod io;
 mod dev;
 mod mem;
+mod gdt;
 
 #[allow(dead_code)]
 #[repr(u32)]
@@ -86,6 +87,8 @@ pub fn main(bootproto: *const BootProto) {
     unsafe {
         SP = Some(sp);
     }
+
+    gdt::init();
 
     println!("KERNEL START");
 
