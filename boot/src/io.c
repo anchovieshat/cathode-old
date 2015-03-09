@@ -40,8 +40,6 @@ i32 printf(const i8 *fmt, ...) {
 	return ret;
 }
 
-i8* uitoa(u64, i8 *, i32);
-
 i32 vprintf(const i8 *fmt, __builtin_va_list args) {
 	i32 ret;
 	i8 ch;
@@ -114,10 +112,7 @@ sw:		switch (ch = *fmt++) {
 					num = __builtin_va_arg(args, i64);
 				else
 					num = (i64)__builtin_va_arg(args, i32);
-				if(uflag)
-					uitoa((u64) num, tmp, base);
-				else
-					itoa(num, tmp, base);
+				itoa(num, tmp, base);
 				n = strlen(tmp);
 				if (pad == '0')
 					dwidth = width;
@@ -146,31 +141,6 @@ i8 *itoa(i64 value, i8 *result, i32 base) {
 
     i8* ptr = result, *ptr1 = result, tmp_char;
     i64 tmp_value;
-
-    do {
-        tmp_value = value;
-        value /= base;
-        *ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz" [35 + (tmp_value - value * base)];
-    } while ( value );
-
-    // Apply negative sign
-    if (tmp_value < 0) *ptr++ = '-';
-    *ptr-- = '\0';
-    while (ptr1 < ptr) {
-        tmp_char = *ptr;
-        *ptr--= *ptr1;
-        *ptr1++ = tmp_char;
-    }
-    return result;
-}
-
-
-i8 *uitoa(u64 value, i8 *result, i32 base) {
-    // check that the base if valid
-    if (base < 2 || base > 36) { *result = '\0'; return result; }
-
-    i8* ptr = result, *ptr1 = result, tmp_char;
-    u64 tmp_value;
 
     do {
         tmp_value = value;
