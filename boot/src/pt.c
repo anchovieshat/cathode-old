@@ -22,12 +22,15 @@ void _pt_man_map_inner(struct pt_man *man, void *phy, void *vir, usize *pt, u8 l
 		case 2: idx = PGNUM_L2((usize) vir); break;
 		case 1: idx = PGNUM_L1((usize) vir); break;
 	}
+	printf("PT: CALLIN' DOWN THE MOUNTAIN %d:%d %lu0x->%lu0x\n", lev, idx, (usize) vir, (usize) phy);
 	if(lev == 1) {
 		// Presumably, this page exists.
 		pt[idx] = (((usize) phy) & ~(PAGESZ - 1)) | PF_DEFAULT;
+		printf("PT: %lu0x mapped to %lu0x\n", (usize) phy, (usize) vir);
 	} else {
 		if(pt[idx] == 0) {
 			usize *page = man->page_alloc(1);
+			printf("PT: Alloc'ing PT at level %d at %lu0x\n", lev, (usize) page);
 			pt[idx] = (((usize) page) & ~(PAGESZ - 1)) | PF_DEFAULT;
 		}
 		_pt_man_map_inner(man, phy, vir, (usize *)(pt[idx] & ~(PAGESZ - 1)), lev-1);
@@ -35,7 +38,7 @@ void _pt_man_map_inner(struct pt_man *man, void *phy, void *vir, usize *pt, u8 l
 }
 
 void pt_man_map(struct pt_man *man, void *phy, void *vir, usize bytes) {
-	for(usize v = (usize) vir; v < bytes; v += PAGESZ, phy += PAGESZ)
+	for(usize v = (usize) vir; v < vir + bytes; v += PAGESZ, phy += PAGESZ)
 		_pt_man_map_inner(man, phy, (void *) v, man->l4, 4);
 }
 
@@ -43,7 +46,7 @@ void _pt_man_print_inner(usize *pt, usize *vaddr, u8 lev) {
 	usize *vir;
 	for(u32 i=0; i<PTENTS; i++) {
 		if(pt[i] != 0) {
-			vir = (usize *)((((usize) vaddr) << PAGESHIFT) + i * SZOF_PTE);
+			vir = (usize *)((((usize) vaddr) << PAGESHIFT) + i);
 			if(lev == 1) {
 				printf("vir %lu0x -> %lu0x phy\n", ((usize) vir) << PAGESHIFT, (usize)(pt[i] & ~(PAGESZ - 1)));
 			} else {

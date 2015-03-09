@@ -122,7 +122,7 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 		pt_man_map(&pman, kernel_load, kload, ksize-kload);
 		pt_man_map(&pman, lip->image_base, lip->image_base, lip->image_size);
 		printf("Virtual map: \n");
-		pt_man_print(&pman);
+		// pt_man_print(&pman);
 
 		for (i = 1; i < kernel_hdr->e_phnum; ++i) {
 			kernel_phdr = (Elf64_Phdr*)(kernel+kernel_hdr->e_phoff+(i*kernel_hdr->e_phentsize));
