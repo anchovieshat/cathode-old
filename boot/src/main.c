@@ -3,6 +3,22 @@
 #include "io.h"
 
 #define KERNEL_MAX_LOAD_ADDR 0x1000000
+#define SZOF_PTE 8
+#define PAGESHIFT 12
+#define PAGESZ (1l << PAGESHIFT)
+
+#define VADDR_L1(l1) ((l1) * PAGESZ)
+#define VADDR_L2(l2, l1) (VADDR_L1(l2) * PAGESZ + VADDR_L1(l1))
+#define VADDR_L3(l3, l2, l1) (VADDR_L2(l3, 0) * PAGESZ + VADDR_L2(l2, l1))
+#define VADDR_L4(l4, l3, l2, l1) (VADDR_L3(l4, 0, 0) * PAGESZ + VADDR_L3(l3, l2, l1))
+
+#define PGNUM_L1(va) (((va) >> PAGESHIFT) & (PAGESZ - 1))
+#define PGNUM_L2(va) (((va) >> (2 * PAGESHIFT)) & (PAGESZ - 1))
+#define PGNUM_L3(va) (((va) >> (3 * PAGESHIFT)) & (PAGESZ - 1))
+#define PGNUM_L4(va) (((va) >> (4 * PAGESHIFT)) & (PAGESZ - 1))
+
+/* PRESENT | WRITABLE | GLOBAL  (! USER) */
+#define PF_DEFAULT 259
 
 EfiSystemTable *ST;
 
@@ -18,6 +34,8 @@ typedef struct {
 	EfiMemoryDescriptor *memory_map;
 	u64 map_size;
 	u64 map_entry_size;
+	u64 phy_p4_base;
+	u64 phy_pt_pages;
 } BootProtocol;
 
 void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
@@ -32,6 +50,7 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 	char *kernel;
 	u64 i, j, idx;
 	u64 ksize = 0;
+	u64 kload = 0xffffffffffffffff;
 	u64 kernel_load = KERNEL_MAX_LOAD_ADDR;
 	u64 kernel_stack;
 	u64 *relptr;
@@ -52,7 +71,7 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 	status = sys_table->boot_services->handle_protocol(image_handle, &LoadedImageGUID, (void**)&lip);
 	status = sys_table->boot_services->handle_protocol(lip->device_handle, &SimpleFileSystemGUID, (void**)&sfs);
 
-	printf("Loaded at 0x%lx\n", (u64)lip->image_base);
+	printf("Loaded at 0x%lux\n", (u64)lip->image_base);
 
 	printf("EFI Version %d.%02d\n", ST->hdr.revision >> 16, ST->hdr.revision & 0xffff);
 	printf("EFI Firmware: ");
@@ -85,23 +104,113 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 
 		for (i = 1; i < kernel_hdr->e_shnum; i++) {
 			kernel_shdr = (Elf64_Shdr*)(kernel+kernel_hdr->e_shoff+(i*kernel_hdr->e_shentsize));
-			printf("Section with name '%s' loads from 0x%lx to 0x%lx\n", kernel+kernel_strshdr->sh_offset+kernel_shdr->sh_name, kernel_shdr->sh_offset, kernel_shdr->sh_addr);
+			printf("Section with name '%s' loads from 0x%lux to 0x%lux\n", kernel+kernel_strshdr->sh_offset+kernel_shdr->sh_name, kernel_shdr->sh_offset, kernel_shdr->sh_addr);
 		}
 		for (i = 1; i < kernel_hdr->e_phnum; ++i) {
 			kernel_phdr = (Elf64_Phdr*)(kernel+kernel_hdr->e_phoff+(i*kernel_hdr->e_phentsize));
 			printf("PHdr with type %d\n", kernel_phdr->p_type);
 			if (kernel_phdr->p_type == PT_LOAD) {
-				printf("Load %lx from 0x%lx to 0x%lx\n", kernel_phdr->p_memsz, kernel_phdr->p_offset, kernel_phdr->p_vaddr);
+				printf("Load %lux from 0x%lux to 0x%lux\n", kernel_phdr->p_memsz, kernel_phdr->p_offset, kernel_phdr->p_vaddr);
 				if (kernel_phdr->p_vaddr + kernel_phdr->p_memsz > ksize)
 					ksize = kernel_phdr->p_vaddr + kernel_phdr->p_memsz;
+				if(kernel_phdr->p_vaddr < kload)
+					kload = kernel_phdr->p_vaddr;
 			}
 		}
 
-		status = sys_table->boot_services->allocate_pages(AllocateMaxAddress, EfiLoaderData, (((kernel_info->file_size+4095) & ~4095)/4096)+64, &kernel_load);
+		status = sys_table->boot_services->allocate_pages(AllocateMaxAddress, EfiLoaderData, (((kernel_info->file_size+(PAGESZ-1)) & ~(PAGESZ-1))/PAGESZ)+64, &kernel_load);
 		if (status != EFI_SUCCESS)
 			goto fail;
 
-		printf("Allocated kernel at 0x%lx (to 0x%lx): %d\n", kernel_load, kernel_load+(((kernel_info->file_size+4095) & ~4095)), (i32)status);
+		printf("Kernel virtual extents: %lux low, %lux high\n", kload, ksize);
+		printf("Allocated kernel at 0x%lux (to 0x%lux): %d\n", kernel_load, kernel_load+(((kernel_info->file_size+(PAGESZ-1)) & ~(PAGESZ-1))), (i32)status);
+
+		usize imload = (usize) lip->image_base, imhigh = imload + ((usize) lip->image_size);
+
+		usize pages = ((kernel_info->file_size + (PAGESZ-1)) + (lip->image_size + (PAGESZ-1)))/PAGESZ;
+		usize pages_pl1 = (pages*SZOF_PTE + PAGESZ - 1)/PAGESZ;
+		usize pages_pl2 = (pages_pl1*SZOF_PTE + PAGESZ - 1)/PAGESZ;
+		usize pages_pl3 = (pages_pl2*SZOF_PTE + PAGESZ - 1)/PAGESZ;
+		usize pages_pl4 = (pages_pl3*SZOF_PTE + PAGESZ - 1)/PAGESZ;
+		usize pages_pts = pages_pl1 + pages_pl2 + pages_pl3 + pages_pl4;
+		usize *pt_pl4;
+		usize *pt_pl3;
+		usize *pt_pl2;
+		usize *pt_pl1;
+
+		printf("PT: Pages needed: %lud (L1=%lud, L2=%lud, L3=%lud, L4=%lud, %lud to cover kernel)\n", pages_pts, pages_pl1, pages_pl2, pages_pl3, pages_pl4, pages);
+
+		status = sys_table->boot_services->allocate_pages(AllocateAnyPages, EfiLoaderData, pages_pts, &pt_pl4);
+		pt_pl3 = (usize *)(((char *) pt_pl4) + SZOF_PTE*pages_pl4);
+		pt_pl2 = (usize *)(((char *) pt_pl3) + SZOF_PTE*pages_pl3);
+		pt_pl1 = (usize *)(((char *) pt_pl2) + SZOF_PTE*pages_pl2);
+
+		printf("PT: Table pointers at L1=%lux, L2=%lux, L3=%lux, L4=%lux\n", (u64)pt_pl4, (u64)pt_pl3, (u64)pt_pl2, (u64)pt_pl1);
+		printf("PT: Granularities at L1=%lux, L2=%lux, L3=%lux, L4=%lux\n", VADDR_L4(0, 0, 0, 1), VADDR_L4(0, 0, 1, 0), VADDR_L4(0, 1, 0, 0), VADDR_L4(1, 0, 0, 0));
+
+		usize vaddr_l, vaddr_h;
+		for(u64 i4 = 0; i4 < PAGESZ; i4++) {
+			vaddr_l = VADDR_L4(i4, 0, 0, 0);
+			vaddr_h = VADDR_L4(i4+1, 0, 0, 0)-1;
+			printf("(%lu0x - %lu0x) ", vaddr_l, vaddr_h);
+			if((vaddr_h < kload || vaddr_l >= ksize) && (vaddr_h < imload || vaddr_l >= imhigh)) {
+				printf(" skipped.\n");
+				pt_pl4[i4] = 0;
+				continue;
+			}
+			printf("\n");
+
+			pt_pl4[i4] = (((usize) pt_pl3) & ~(PAGESZ - 1)) | PF_DEFAULT;
+
+			for(u64 i3 = 0; i3 < PAGESZ; i3++) {
+				vaddr_l = VADDR_L4(i4, i3, 0, 0);
+				vaddr_h = VADDR_L4(i4, i3+1, 0, 0)-1;
+				printf("\t(%lu0x - %lu0x) ", vaddr_l, vaddr_h);
+				if((vaddr_h < kload || vaddr_l >= ksize) && (vaddr_h < imload || vaddr_l >= imhigh)) {
+					printf("skipped.\n");
+					pt_pl3[i3] = 0;
+					continue;
+				}
+				printf("\n");
+
+				pt_pl3[i3] = (((usize) pt_pl2) & ~(PAGESZ - 1)) | PF_DEFAULT;
+
+				for(u64 i2 = 0; i2 < PAGESZ; i2++) {
+					vaddr_l = VADDR_L4(i4, i3, i2, 0);
+					vaddr_h = VADDR_L4(i4, i3, i2+1, 0)-1;
+					printf("\t\t(%lu0x - %lu0x) ", vaddr_l, vaddr_h);
+					if((vaddr_h < kload || vaddr_l >= ksize) && (vaddr_h < imload || vaddr_l >= imhigh)) {
+						printf("skipped.\n");
+						pt_pl2[i2] = 0;
+						continue;
+					}
+					printf("\n");
+
+					pt_pl2[i2] = (((usize) pt_pl1) & ~(PAGESZ - 1)) | PF_DEFAULT;
+
+					for(u64 i1 = 0; i1 < PAGESZ; i1++) {
+						vaddr_l = VADDR_L4(i4, i3, i2, i1);
+						vaddr_h = VADDR_L4(i4, i3, i2, i1+1)-1;
+						printf("\t\t\t(%lu0x - %lu0x) ", vaddr_l, vaddr_h);
+						if((vaddr_h < kload || vaddr_l >= ksize) && (vaddr_h < imload || vaddr_l >= imhigh)) {
+							printf("skipped.\n");
+							pt_pl1[i1] = 0;
+							continue;
+						}
+
+						if(vaddr_h >= kload && vaddr_l < ksize) {
+							pt_pl1[i1] = ((vaddr_l - kload + kernel_load) & ~(PAGESZ - 1)) | PF_DEFAULT;
+							printf("(region kern) ");
+						}
+						if(vaddr_h >= imload && vaddr_l < imhigh) {
+							pt_pl1[i1] = (vaddr_l & ~(PAGESZ - 1)) | PF_DEFAULT;
+							printf("(region boot) ");
+						}
+						printf("Mapped virt %lu0x -> %lu0x phy\n", vaddr_l, (u64)((pt_pl1[i1] & ~(PAGESZ - 1)) << PAGESHIFT));
+					}
+				}
+			}
+		}
 
 		for (i = 1; i < kernel_hdr->e_phnum; ++i) {
 			kernel_phdr = (Elf64_Phdr*)(kernel+kernel_hdr->e_phoff+(i*kernel_hdr->e_phentsize));
@@ -111,7 +220,7 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 		}
 
 		status = sys_table->boot_services->allocate_pages(AllocateAnyPages, EfiLoaderData, 512, &kernel_stack);
-		printf("Allocated kernel stack at 0x%lx", (u64)kernel_stack);
+		printf("Allocated kernel stack at 0x%lux", (u64)kernel_stack);
 		if (status != EFI_SUCCESS) {
 			goto fail;
 		}
@@ -128,13 +237,17 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 			.kernel_base = (u64)kernel_load,
 			.memory_map = mmap,
 			.map_size = mmap_size,
-			.map_entry_size = mmap_ent_size
+			.map_entry_size = mmap_ent_size,
+			.phy_p4_base = (u64) pt_pl4,
+			.phy_pt_pages = pages_pts
 		};
+
+		__asm__ volatile ("movq %0, %%cr3" : : "r"(pt_pl4) : );
 
 		if ((status = sys_table->boot_services->exit_boot_services(image_handle, map_key)) != EFI_SUCCESS)
 			printf("Failed to exit %d\n", (u32)status);
 		else {
-			((void (*)(BootProtocol*,void*))(kernel_load))(&bootproto, (void*)(kernel_stack+(512*4096)));
+			((void (*)(BootProtocol*,void*))(kernel_hdr->e_entry))(&bootproto, (void*)(kernel_stack+(512*4096)));
 		}
 	}
 fail:

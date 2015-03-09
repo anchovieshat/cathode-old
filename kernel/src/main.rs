@@ -56,7 +56,9 @@ pub struct BootProto {
     kernel_base: u64,
     mem_map: *const EfiMemoryDescriptor,
     map_size: u64,
-    map_ent_size: u64
+    map_ent_size: u64,
+    phy_p4_base: u64,
+    phy_pt_pages: u64
 }
 
 struct BootProtoIter {
