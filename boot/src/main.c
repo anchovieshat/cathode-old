@@ -23,8 +23,8 @@ typedef struct {
 } BootProtocol;
 
 void *page_alloc(usize pages) {
-	u64 *ptr = 0;
-	ST->boot_services->allocate_pages(AllocateAnyPages, EfiLoaderData, pages, ptr);
+	void *ptr = 0;
+	ST->boot_services->allocate_pages(AllocateAnyPages, EfiLoaderData, pages, (u64 *)&ptr);
 	return (void *)ptr;
 }
 
@@ -38,17 +38,15 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 	usize kernel_info_size = 0;
 	u64 kernel_addr = KERNEL_MAX_LOAD_ADDR;
 	char *kernel;
-	u64 i, j, idx;
+	u64 i, idx;
 	u64 ksize = 0;
 	u64 kload = 0xffffffffffffffff;
 	u64 kernel_load = KERNEL_MAX_LOAD_ADDR;
 	u64 kernel_stack;
-	u64 *relptr;
 	Elf64_Phdr *kernel_phdr;
 	Elf64_Shdr *kernel_shdr;
 	Elf64_Shdr *kernel_strshdr;
 	Elf64_Ehdr *kernel_hdr;
-	Elf64_Rela *rel;
 	EfiMemoryDescriptor *mmap;
 	usize mmap_size;
 	usize mmap_ent_size;
@@ -116,18 +114,19 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 		printf("Kernel virtual extents: %lux low, %lux high\n", kload, ksize);
 		printf("Allocated kernel at 0x%lux (to 0x%lux): %d\n", kernel_load, kernel_load+(((kernel_info->file_size+(PAGESZ-1)) & ~(PAGESZ-1))), (i32)status);
 
-		usize imload = (usize) lip->image_base, imhigh = imload + ((usize) lip->image_size);
+//		usize imload = (usize) lip->image_base, imhigh = imload + ((usize) lip->image_size);
 
+		printf("Now touching EFI's page table...\n");
 		pt_man_init(&pman, page_alloc);
-		pt_man_map(&pman, kernel_load, kload, ksize-kload);
+		pt_man_map(&pman, (void*)kernel_load, (void*)kload, ksize-kload);
 		pt_man_map(&pman, lip->image_base, lip->image_base, lip->image_size);
 		printf("Virtual map: \n");
-		// pt_man_print(&pman);
+		pt_man_print(&pman);
 
 		for (i = 1; i < kernel_hdr->e_phnum; ++i) {
 			kernel_phdr = (Elf64_Phdr*)(kernel+kernel_hdr->e_phoff+(i*kernel_hdr->e_phentsize));
 			if (kernel_phdr->p_type == PT_LOAD) {
-				memcpy((void*)kernel_load+kernel_phdr->p_vaddr, kernel+kernel_phdr->p_offset, kernel_phdr->p_filesz);
+				memcpy((void*)kernel_load+(kernel_phdr->p_vaddr-kload), kernel+kernel_phdr->p_offset, kernel_phdr->p_filesz);
 			}
 		}
 
@@ -137,7 +136,7 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 			goto fail;
 		}
 
-		sys_table->boot_services->stall(15000000);
+		sys_table->boot_services->stall(5000000);
 
 		mmap_size = 0;
 		sys_table->con_out->clear_screen(sys_table->con_out);
@@ -155,11 +154,10 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 			.phy_p4_base = (u64) pman.l4,
 		};
 
-		__asm__ volatile ("movq %0, %%cr3" : : "r"(pman.l4) : );
-
 		if ((status = sys_table->boot_services->exit_boot_services(image_handle, map_key)) != EFI_SUCCESS)
 			printf("Failed to exit %d\n", (u32)status);
 		else {
+			__asm__ volatile ("movq %0, %%cr3" : : "r"(pman.l4) : );
 			((void (*)(BootProtocol*,void*))(kernel_hdr->e_entry))(&bootproto, (void*)(kernel_stack+(512*4096)));
 		}
 	}

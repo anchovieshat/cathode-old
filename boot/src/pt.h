@@ -7,15 +7,10 @@
 #define SZOF_PTE sizeof(usize)
 #define PTENTS (PAGESZ / SZOF_PTE)
 
-#define VADDR_L1(l1) ((l1) * PAGESZ)
-#define VADDR_L2(l2, l1) (VADDR_L1(l2) * PAGESZ + VADDR_L1(l1))
-#define VADDR_L3(l3, l2, l1) (VADDR_L2(l3, 0) * PAGESZ + VADDR_L2(l2, l1))
-#define VADDR_L4(l4, l3, l2, l1) (VADDR_L3(l4, 0, 0) * PAGESZ + VADDR_L3(l3, l2, l1))
-
-#define PGNUM_L1(va) (((va) >> PAGESHIFT) & (PAGESZ - 1))
-#define PGNUM_L2(va) (((va) >> (2 * PAGESHIFT)) & (PAGESZ - 1))
-#define PGNUM_L3(va) (((va) >> (3 * PAGESHIFT)) & (PAGESZ - 1))
-#define PGNUM_L4(va) (((va) >> (4 * PAGESHIFT)) & (PAGESZ - 1))
+#define PGNUM_L4(va) ((((usize) va) >> 39) & (PTENTS - 1))
+#define PGNUM_L3(va) ((((usize) va) >> 30) & (PTENTS - 1))
+#define PGNUM_L2(va) ((((usize) va) >> 21) & (PTENTS - 1))
+#define PGNUM_L1(va) ((((usize) va) >> 12) & (PTENTS - 1))
 
 /* PRESENT | WRITABLE | GLOBAL  (! USER) */
 #define PF_DEFAULT 259

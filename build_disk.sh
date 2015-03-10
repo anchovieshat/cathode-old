@@ -33,7 +33,7 @@ copy_efi_partition() {
 	dd if=$2 of=$1 bs=512 obs=512 count=$BOOT_SECTORS seek=$DISK_START conv=notrunc >/dev/null 2>&1
 }
 
-cd build
+cd /tmp/build
 
 [ ! -e boot.img ] && build_efi_partition 'boot.img'
 copy_efi_files 'boot.img'

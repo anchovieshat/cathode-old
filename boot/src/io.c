@@ -1,4 +1,5 @@
 #include "io.h"
+#define OBUF_SZ 4096
 
 static i64 strlen(const i8 *s) {
 	i64 c = 0;
@@ -8,6 +9,9 @@ static i64 strlen(const i8 *s) {
 
 	return c;
 }
+
+static u16 OUTPUT_BUFFER[OBUF_SZ];
+static u32 o_idx = 0;
 
 i32 puts(const i8 *s) {
 	int st;
@@ -19,15 +23,16 @@ i32 puts(const i8 *s) {
 }
 
 i32 putc(i8 c) {
-	u16 buf[2];
-
-    if (c == '\n')
-		putc('\r');
-
-	buf[0] = c;
-	buf[1] = 0;
-
-	return (ST->con_out->output_string(ST->con_out, buf) == EFI_SUCCESS);
+	if(c == '\n') {
+		OUTPUT_BUFFER[o_idx++] = '\r';
+	}
+	OUTPUT_BUFFER[o_idx++] = c;
+	if(c == '\n' || o_idx >= (OBUF_SZ - 3)) {
+		OUTPUT_BUFFER[o_idx] = '\0';
+		o_idx = 0;
+		return (ST->con_out->output_string(ST->con_out, OUTPUT_BUFFER) == EFI_SUCCESS);
+	}
+	return 1;
 }
 
 i32 printf(const i8 *fmt, ...) {
@@ -140,13 +145,16 @@ i8 *itoa(i64 value, i8 *result, i32 base) {
     if (base < 2 || base > 36) { *result = '\0'; return result; }
 
     i8* ptr = result, *ptr1 = result, tmp_char;
-    i64 tmp_value;
+    i64 tmp_value = value;
+	value = (value < 0 ? -value : value);
 
-    do {
-        tmp_value = value;
-        value /= base;
-        *ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz" [35 + (tmp_value - value * base)];
-    } while ( value );
+	do {
+		*ptr++ = "0123456789abcdefghijklmnopqrstuvwxyz"[value % base];
+		if(!base) {
+			*result++ = 'S'; *result++ = 'H'; *result++ = 'I'; *result++ = 'T'; *result++ = '\0';
+			return result;
+		}
+	} while(value /= base);
 
     // Apply negative sign
     if (tmp_value < 0) *ptr++ = '-';

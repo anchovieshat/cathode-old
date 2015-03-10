@@ -1,6 +1,7 @@
 #!/bin/sh
 
 OUTFILE=build.ninja
+builddir=/tmp/build
 
 msg() {
 	echo "configure: $1"
@@ -98,7 +99,7 @@ set_var "configure_args" "$@"
 
 write_build ""
 
-set_var "builddir" "build"
+set_var "builddir" "$builddir"
 set_var "outdir" '$builddir'
 set_var "rustc" "rustc"
 set_var "as" "yasm"
@@ -122,7 +123,7 @@ define_rule "build_disk" "BUILD_DISK" './build_disk.sh'
 
 target 'lib/libcore.rlib' 'rustc' 'lib/libcore/lib.rs | lib/x86_64-unknown-kernel.json' 'rustcflags = --target x86_64-unknown-kernel --emit link,dep-info --crate-type rlib' 'dep=$builddir/lib/core.d' 'outdir=$builddir/lib' 'rustenv = RUST_TARGET_PATH=lib'
 
-target 'kernel/kernel.o' 'rustc' 'kernel/src/main.rs | $builddir/lib/libcore.rlib lib/x86_64-unknown-kernel.json' 'rustcflags = --emit obj,dep-info -C lto -O -L build/lib --target x86_64-unknown-kernel' 'dep=$builddir/kernel/kernel.d' 'outdir=$builddir/kernel' 'rustenv = RUST_TARGET_PATH=lib'
+target 'kernel/kernel.o' 'rustc' 'kernel/src/main.rs | $builddir/lib/libcore.rlib lib/x86_64-unknown-kernel.json' 'rustcflags = --emit obj,dep-info -C lto -O -L $builddir/lib --target x86_64-unknown-kernel' 'dep=$builddir/kernel/kernel.d' 'outdir=$builddir/kernel' 'rustenv = RUST_TARGET_PATH=lib'
 target_sources 'KERN_ASM_OBJS' 'kernel/$base_noext.o' 'as' 'kernel/src/*.asm'
 target 'kernel/kernel' 'ld' " $KERN_ASM_OBJS \$builddir/kernel/kernel.o \$builddir/lib/libcore.rlib | kernel/kernel.ld" 'ldflags=-O1 --gc-sections -nostdlib -Bsymbolic -z defs -T kernel/kernel.ld'
 
