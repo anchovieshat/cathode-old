@@ -472,4 +472,50 @@ struct _EfiSimpleFileSystemProtocol {
 	EfiSimpleFileSystemProtocolOpenVolume open_volume;
 };
 
+#define EFI_GRAPHICS_OUTPUT_PROTOCOL {0x9042a9de,0x23dc,0x4a38,{0x96,0xfb,0x7a,0xde,0xd0,0x80,0x51,0x6a}}
+
+typedef enum {
+	PixelRedGreenBlueReserved8BitPerColor,
+	PixelBlueGreenRed8BitPerColor,
+	PixelBitMask,
+	PixelBltOnly,
+	PixelFormatsMax
+} EfiGraphicsPixelFormat;
+
+typedef struct {
+	u32 red_mask;
+	u32 green_mask;
+	u32 blue_mask;
+	u32 reserved_mask;
+} EfiPixelBitmap;
+
+typedef struct {
+	u32 version;
+	u32 horizontal_resolution;
+	u32 vertical_resolution;
+	EfiGraphicsPixelFormat pixel_format;
+	EfiPixelBitmap pixel_information;
+	u32 pixels_per_scan_line;
+} EfiGraphicsOutputModeInformation;
+
+typedef struct {
+	u32 max_mode;
+	u32 mode;
+	EfiGraphicsOutputModeInformation *info;
+	usize size_of_info;
+	u64 frame_buffer_base;
+	usize frame_buffer_size;
+} EfiGraphicsOutputProtocolMode;
+
+struct _EfiGraphicsOutputProtocol;
+
+typedef struct _EfiGraphicsOutputProtocol EfiGraphicsOutputProtocol;
+
+struct _EfiGraphicsOutputProtocol {
+	EfiGraphicsOutputProtocolQueryMode query_mode;
+	EfiGraphicsOutputProtocolSetMode set_mode;
+	EfiGraphicsOutputProtocolBlt blt;
+	EfiGraphicsOutputProtocolMode *mode;
+};
+
 #endif // _EFI_H_
