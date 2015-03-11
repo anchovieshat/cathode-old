@@ -1,5 +1,9 @@
 #![allow(dead_code)]
 
+use core::prelude::*;
+use core::fmt;
+use unicode::str;
+
 pub type Status = usize;
 
 pub type TextReset = *const ();
@@ -9,6 +13,34 @@ pub type TextString = extern "win64" fn (*const SimpleTextOutputProtocol, *const
 pub struct SimpleTextOutputProtocol {
     pub reset: TextReset,
     pub output_string: TextString,
+}
+
+pub struct Console {
+    output_proto: *mut SimpleTextOutputProtocol,
+}
+
+impl Console {
+    pub fn new(output_proto: *mut SimpleTextOutputProtocol) -> Console {
+        Console {
+            output_proto: output_proto,
+        }
+    }
+}
+
+impl fmt::Write for Console {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        let mut buf = [0u16, 0u16];
+        for c in str::Utf16Encoder::new(s.chars()) {
+            if c == '\n' as u16 {
+                self.write_str("\r");
+            }
+            buf[0] = c;
+            unsafe {
+                ((*self.output_proto).output_string)(self.output_proto, buf.as_ptr());
+            }
+        }
+        Ok(())
+    }
 }
 
 pub type SimpleTextInputProtocol = ();
@@ -108,16 +140,18 @@ pub struct SystemTable {
     pub fw_vendor: *const u16,
     pub fw_revision: u32,
     pub console_in_handle: Handle,
-    pub con_in: *const SimpleTextInputProtocol,
+    pub con_in: *mut SimpleTextInputProtocol,
     pub con_out_handle: Handle,
-    pub con_out: *const SimpleTextOutputProtocol,
+    pub con_out: *mut SimpleTextOutputProtocol,
     pub con_err_handle: Handle,
-    pub con_err: *const SimpleTextOutputProtocol,
+    pub con_err: *mut SimpleTextOutputProtocol,
     pub runtime_services: RuntimeServices,
     pub boot_services: BootServices,
     pub num_entries: usize,
     pub configuration_table: ConfigurationTable
 }
+
+unsafe impl Sync for SystemTable { }
 
 #[repr(C)]
 pub struct ConfigurationTable {
