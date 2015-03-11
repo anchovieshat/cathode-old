@@ -35,7 +35,7 @@ pub fn start(image_handle: efi::Handle, sys_table: *mut efi::SystemTable) {
     unsafe {
         ST = Some(ptr::Unique::new(sys_table));
     }
-    let c = unsafe { efi::Console::new(ST.as_ref().unwrap().get().con_out) };
+    let c = unsafe { efi::Console::new(ptr::Unique::new(ST.as_ref().unwrap().get().con_out)) };
     unsafe {
         CONSOLE = Some(c);
     }

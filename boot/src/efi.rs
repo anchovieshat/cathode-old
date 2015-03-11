@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use core::prelude::*;
+use core::ptr::Unique;
 use core::fmt;
 use unicode::str;
 
@@ -16,11 +17,11 @@ pub struct SimpleTextOutputProtocol {
 }
 
 pub struct Console {
-    output_proto: *mut SimpleTextOutputProtocol,
+    output_proto: Unique<SimpleTextOutputProtocol>,
 }
 
 impl Console {
-    pub fn new(output_proto: *mut SimpleTextOutputProtocol) -> Console {
+    pub fn new(output_proto: Unique<SimpleTextOutputProtocol>) -> Console {
         Console {
             output_proto: output_proto,
         }
@@ -36,7 +37,7 @@ impl fmt::Write for Console {
             }
             buf[0] = c;
             unsafe {
-                ((*self.output_proto).output_string)(self.output_proto, buf.as_ptr());
+                (self.output_proto.get().output_string)(*self.output_proto, buf.as_ptr());
             }
         }
         Ok(())
