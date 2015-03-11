@@ -59,6 +59,8 @@ pub unsafe extern fn _reloc(image_base: u64, dyn: *const ElfDyn, image_handle: e
             }
             _ => (),
         }
+        let newrel = mem::transmute(rel) + relent;
+        rel = mem::transmute(newrel);
         relsz -= relent;
     }
 }
