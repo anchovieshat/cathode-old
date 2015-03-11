@@ -74,6 +74,47 @@ default_target() {
 	write_build "default \$builddir/$1"
 }
 
+valopt() {
+	VAL_OPTS="$VAL_OPTS $1";
+	local opt=$1; shift
+	local default=$1; shift
+	local doc="$*"
+	if [ $HELP -eq 0 ]; then
+		local uopt=`echo $opt | tr '[:lower:]' '[:upper:]' | tr '\-' '\_'`
+		eval $uopt="$default"
+		for arg in $ARGS; do
+			if echo "$arg" | grep -q -- "--$opt="; then
+				val=`echo "$arg" | cut -f2 -d=`
+				eval $uopt="$val"
+			fi
+		done
+	else
+		opt="$opt=[$default]"
+		printf "\t --%s %s\n" "$opt" "$doc"
+	fi
+}
+
+validate_args() {
+	for arg in $ARGS; do
+		is_valid=0
+		for opt in $VAL_OPTS; do
+			if echo "$arg" | grep -q -- "--$opt="; then
+				is_valid=1
+			fi
+		done
+		if [ "$arg" = "--help" ]; then
+			break
+		else
+			if [ $is_valid -eq 0 ]; then
+				err "option '$arg' not recognized"
+			fi
+		fi
+	done
+}
+
+HELP=0
+ARGS="$@"
+
 msg "looking for build programs"
 
 need_cmd "rustc"
@@ -87,8 +128,23 @@ need_cmd "mformat"
 need_cmd "mcopy"
 need_cmd "mmd"
 
+if [ "$1" = "--help" ]; then
+	HELP=1
+fi
+
+valopt 'rust-path' '../rust' 'Path to Rust source'
+valopt 'build-dir' 'build' 'Path to build directory'
+
+if [ $HELP -eq 1 ]; then
+	exit 0
+fi
+
+msg "checking configure arguments"
+
+validate_args
+
 msg "checking rust path"
-RUST_PATH=`realpath $1`
+RUST_PATH=`realpath $RUST_PATH`
 
 need_rustlib "core"
 need_rustlib "unicode"
@@ -99,7 +155,7 @@ set_var "configure_args" "$@"
 
 write_build ""
 
-set_var "builddir" "/tmp/build"
+set_var "builddir" "$BUILD_DIR"
 set_var "outdir" '$builddir'
 set_var "rustc" "rustc"
 set_var "as" "yasm"
