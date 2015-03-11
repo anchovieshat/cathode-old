@@ -7,6 +7,7 @@ extern crate core;
 extern crate unicode;
 
 mod lang;
+mod efi;
 
 use core::prelude::*;
 use core::mem;
@@ -31,41 +32,9 @@ pub struct ElfRel {
     r_info: u64,
 }
 
-type EfiTextReset = *const ();
-type EfiTextString = extern "win64" fn (*const EfiSimpleTextOutputProtocol, *const u16);
-
-#[repr(C)]
-struct EfiSimpleTextOutputProtocol {
-    reset: EfiTextReset,
-    output_string: EfiTextString,
-}
-
-type EfiSimpleTextInputProtocol = ();
-
-#[repr(C)]
-struct EfiTableHeader {
-	signature: u64,
-	revision: u32,
-	header_size: u32,
-	crc32: u32,
-	_reserved: u32,
-}
-
-#[repr(C)]
-pub struct EfiSystemTable {
-    hdr: EfiTableHeader,
-    fw_vendor: *const u16,
-    fw_revision: u32,
-    console_in_handle: EfiHandle,
-    con_in: *const EfiSimpleTextInputProtocol,
-    con_out_handle: EfiHandle,
-    con_out: *const EfiSimpleTextOutputProtocol,
-}
-
-pub type EfiHandle = *const ();
 
 #[no_mangle]
-pub unsafe extern fn _reloc(image_base: u64, dyn: *const ElfDyn, image_handle: EfiHandle, system_table: *const EfiSystemTable) {
+pub unsafe extern fn _reloc(image_base: u64, dyn: *const ElfDyn, image_handle: efi::Handle, system_table: *const efi::SystemTable) {
     let mut relsz = 0u64;
     let mut relent = 0u64;
 
@@ -95,7 +64,7 @@ pub unsafe extern fn _reloc(image_base: u64, dyn: *const ElfDyn, image_handle: E
 }
 
 #[no_mangle]
-pub fn start(image_handle: EfiHandle, sys_table: *const EfiSystemTable) {
+pub fn start(image_handle: efi::Handle, sys_table: *const efi::SystemTable) {
     unsafe {
         let con_out = (*sys_table).con_out;
         for c in unicode::str::Utf16Encoder::new("Hello World".chars()) {

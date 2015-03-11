@@ -99,7 +99,7 @@ set_var "configure_args" "$@"
 
 write_build ""
 
-set_var "builddir" "build"
+set_var "builddir" "/tmp/build"
 set_var "outdir" '$builddir'
 set_var "rustc" "rustc"
 set_var "as" "yasm"
