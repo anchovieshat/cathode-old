@@ -1,9 +1,10 @@
-#![feature(no_std,asm,lang_items,core)]
+#![feature(no_std,asm,lang_items,core,unicode)]
 #![crate_name="boot"]
 #![crate_type="staticlib"]
 #![no_std]
 
 extern crate core;
+extern crate unicode;
 
 mod lang;
 
@@ -30,7 +31,37 @@ pub struct ElfRel {
     r_info: u64,
 }
 
-pub type EfiSystemTable = ();
+type EfiTextReset = *const ();
+type EfiTextString = extern "win64" fn (*const EfiSimpleTextOutputProtocol, *const u16);
+
+#[repr(C)]
+struct EfiSimpleTextOutputProtocol {
+    reset: EfiTextReset,
+    output_string: EfiTextString,
+}
+
+type EfiSimpleTextInputProtocol = ();
+
+#[repr(C)]
+struct EfiTableHeader {
+	signature: u64,
+	revision: u32,
+	header_size: u32,
+	crc32: u32,
+	_reserved: u32,
+}
+
+#[repr(C)]
+pub struct EfiSystemTable {
+    hdr: EfiTableHeader,
+    fw_vendor: *const u16,
+    fw_revision: u32,
+    console_in_handle: EfiHandle,
+    con_in: *const EfiSimpleTextInputProtocol,
+    con_out_handle: EfiHandle,
+    con_out: *const EfiSimpleTextOutputProtocol,
+}
+
 pub type EfiHandle = *const ();
 
 #[no_mangle]
@@ -64,6 +95,13 @@ pub unsafe extern fn _reloc(image_base: u64, dyn: *const ElfDyn, image_handle: E
 }
 
 #[no_mangle]
-pub fn start() {
+pub fn start(image_handle: EfiHandle, sys_table: *const EfiSystemTable) {
+    unsafe {
+        let con_out = (*sys_table).con_out;
+        for c in unicode::str::Utf16Encoder::new("Hello World".chars()) {
+            let strarr: [u16; 2] = [c, 0];
+            ((*con_out).output_string)(con_out, strarr.as_ptr());
+        }
+    }
     loop { }
 }
