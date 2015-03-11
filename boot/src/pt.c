@@ -28,7 +28,7 @@ void _pt_man_map_inner(struct pt_man *man, void *phy, void *vir, usize *pt, u8 l
 		printf("PT: %lu0x mapped to %lu0x\n", (usize) phy, (usize) vir);
 	} else {
 		//printf("PT: Page ptr at %d:%d (page @%lu0x) = %lu0x\n", lev, idx, (usize) pt, pt[idx]);
-		if(pt[idx] == 0) {
+		if(!(pt[idx] & 1)) {
 			usize *page = man->page_alloc(1);
 			//printf("PT: Alloc'ing PT at level %d at %lu0x\n", lev, (usize) page);
 			pt_empty(page);
@@ -55,7 +55,7 @@ void _pt_man_print_inner(usize *pt, usize *vaddr, u8 lev) {
 			if(lev == 4) {
 				vir = (usize *)(((usize) vir)&(PTENTS>>1) ? ((usize) vir) | ~(PTENTS - 1) : ((usize) vir));
 			}
-			if(lev == 1) {
+			if(lev == 2) {
 				printf("vir %lu0x -> %lu0x phy\n", ((usize) vir) << PAGESHIFT, (usize)(pt[i] & ~(PAGESZ - 1)));
 			} else {
 				_pt_man_print_inner((usize *)(pt[i] & ~(PAGESZ - 1)), vir, lev - 1);

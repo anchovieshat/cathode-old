@@ -472,7 +472,7 @@ struct _EfiSimpleFileSystemProtocol {
 	EfiSimpleFileSystemProtocolOpenVolume open_volume;
 };
 
-#define EFI_GRAPHICS_OUTPUT_PROTOCOL {0x9042a9de,0x23dc,0x4a38,{0x96,0xfb,0x7a,0xde,0xd0,0x80,0x51,0x6a}}
+#define EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID {0x9042a9de,0x23dc,0x4a38,{0x96,0xfb,0x7a,0xde,0xd0,0x80,0x51,0x6a}}
 
 typedef enum {
 	PixelRedGreenBlueReserved8BitPerColor,
@@ -507,9 +507,28 @@ typedef struct {
 	usize frame_buffer_size;
 } EfiGraphicsOutputProtocolMode;
 
+typedef struct {
+	u8 blue;
+	u8 green;
+	u8 red;
+	u8 reserved;
+} EfiGraphicsOutputBltPixel;
+
+typedef enum {
+	EfiBltVideoFill,
+	EfiBltVideoToBltBuffer,
+	EfiBltBufferToVideo,
+	EfiBltVideoToVideo,
+	EfiGraphicsOutputBltOperationMax
+} EfiGraphicsOutputBltOperation;
+
 struct _EfiGraphicsOutputProtocol;
 
 typedef struct _EfiGraphicsOutputProtocol EfiGraphicsOutputProtocol;
+
+typedef EfiStatus (EFIAPI *EfiGraphicsOutputProtocolQueryMode) (EfiGraphicsOutputProtocol *this, u32 mode_number, usize *size_of_info, EfiGraphicsOutputModeInformation **info);
+typedef EfiStatus (EFIAPI *EfiGraphicsOutputProtocolSetMode) (EfiGraphicsOutputProtocol *this, u32 mode_number);
+typedef EfiStatus (EFIAPI *EfiGraphicsOutputProtocolBlt) (EfiGraphicsOutputProtocol *this, EfiGraphicsOutputBltPixel *blt_buffer, EfiGraphicsOutputBltOperation blt_operation, usize source_x, usize source_y, usize destination_x, usize destination_y, usize width, usize height, usize delta);
 
 struct _EfiGraphicsOutputProtocol {
 	EfiGraphicsOutputProtocolQueryMode query_mode;

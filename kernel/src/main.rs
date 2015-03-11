@@ -51,6 +51,37 @@ struct EfiMemoryDescriptor {
     attrs: u64,
 }
 
+#[allow(dead_code)]
+#[repr(u32)]
+#[derive(Debug)]
+#[derive(PartialEq)]
+#[derive(Eq)]
+enum EfiGraphicsPixelFormat {
+    PixelRedGreenBlueReserved8BitPerColor,
+    PixelBlueGreenRedReserved8BitPerColor,
+    PixelBitMask,
+    PixelBltOnly,
+    PixelFormatsMax
+}
+
+#[repr(C)]
+struct EfiPixelBitmap {
+    red_mask: u32,
+    green_mask: u32,
+    blue_mask: u32,
+    reserved_mask: u32
+}
+
+#[repr(C)]
+struct EfiGraphicsOutputModeInformation {
+    version: u32,
+    horizontal_resolution: u32,
+    vertical_resolution: u32,
+    pixel_format: EfiGraphicsPixelFormat,
+    pixel_information: EfiPixelBitmap,
+    pixels_per_scan_line: u32
+}
+
 #[repr(C)]
 pub struct BootProto {
     kernel_base: u64,
@@ -58,7 +89,12 @@ pub struct BootProto {
     map_size: u64,
     map_ent_size: u64,
     phy_p4_base: u64,
-    phy_pt_pages: u64
+    phy_pt_pages: u64,
+    fb_base: *mut u32,
+    fb_size: usize,
+    xres: u32,
+    yres: u32,
+    pitch: u32
 }
 
 struct BootProtoIter {
@@ -150,6 +186,34 @@ pub fn main(bootproto: *const BootProto) {
         Some(page) => println!("...success, allocated page {:x} at {:x}", page, page << 12),
         None => println!("...failed."),
     };
+
+    let mut xres: u32 = 0;
+    let mut yres: u32 = 0;
+    let mut base: *mut u32 = 0 as *mut u32;
+    let mut size: usize = 0;
+    let mut pitch: u32 = 0;
+
+    unsafe {
+        xres = (*bootproto).xres;
+        yres = (*bootproto).yres;
+        base = (*bootproto).fb_base;
+        size = (*bootproto).fb_size;
+        pitch = (*bootproto).pitch;
+    }
+
+    println!("Graphics resolution {} x {}, base {:x} + {:x}", xres, yres, base as usize, size);
+    println!("PREPARE FOR GARBAGE >:D");
+
+    let mut lsfr_rand = 1337u32;
+
+    for x in (0..yres) {
+        for y in (0..xres) {
+            unsafe { (*base.offset((y * pitch + x) as isize)) = lsfr_rand; }
+            lsfr_rand = (lsfr_rand<<1) | ((lsfr_rand&256)>>8);
+            lsfr_rand = (lsfr_rand<<1) | ((lsfr_rand&131072)>>17);
+            lsfr_rand = (lsfr_rand<<1) | ((lsfr_rand&128)>>7);
+        }
+    }
 
     panic!("Reached end of main");
 }

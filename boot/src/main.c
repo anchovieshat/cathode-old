@@ -10,6 +10,7 @@ EfiSystemTable *ST;
 static EfiGuid LoadedImageGUID = EFI_LOADED_IMAGE_PROTOCOL_GUID;
 static EfiGuid SimpleFileSystemGUID = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
 static EfiGuid FileInfoGUID = EFI_FILE_INFO_ID;
+static EfiGuid GraphicsOutputProtocolGUID = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
 
 extern u64 wstrlen(const u16 *);
 extern void *memcpy(void *, const void *, u64);
@@ -20,6 +21,11 @@ typedef struct {
 	u64 map_size;
 	u64 map_entry_size;
 	u64 phy_p4_base;
+	void *fb_base;
+	usize fb_size;
+	u32 xres;
+	u32 yres;
+	u32 pitch;
 } BootProtocol;
 
 void *page_alloc(usize pages) {
@@ -31,7 +37,10 @@ void *page_alloc(usize pages) {
 void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 	EfiLoadedImageProtocol *lip;
 	EfiSimpleFileSystemProtocol *sfs;
+	EfiGraphicsOutputProtocol *gop;
 	EfiFileProtocol *root, *kernel_file;
+	EfiGraphicsOutputModeInformation *mode_info;
+	usize mode_info_sz;
 	EfiStatus status;
 	u16 *path = u"\\kernel.elf";
 	EfiFileInfo *kernel_info;
@@ -59,6 +68,30 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 	sys_table->con_out->clear_screen(sys_table->con_out);
 	status = sys_table->boot_services->handle_protocol(image_handle, &LoadedImageGUID, (void**)&lip);
 	status = sys_table->boot_services->handle_protocol(lip->device_handle, &SimpleFileSystemGUID, (void**)&sfs);
+    status = sys_table->boot_services->locate_protocol(&GraphicsOutputProtocolGUID, NULL, (void**)&gop);
+
+    u64 max_area = 0;
+	u32 max_area_mode = 0;
+
+	for(u32 mode_n = 0; mode_n < gop->mode->max_mode; mode_n++) {
+		gop->query_mode(gop, mode_n, &mode_info_sz, &mode_info);
+		printf("Mode %d: %d x %d\n", mode_n, mode_info->horizontal_resolution, mode_info->vertical_resolution);
+		if(mode_info->horizontal_resolution * mode_info->vertical_resolution > max_area) {
+			max_area = mode_info->horizontal_resolution * mode_info->vertical_resolution;
+			max_area_mode = mode_n;
+		}
+	}
+
+	printf("Switching to mode %d...\n", max_area_mode);
+
+	// sys_table->boot_services->stall(3000000);
+
+	gop->set_mode(gop, max_area_mode);
+	gop->query_mode(gop, max_area_mode, &mode_info_sz, &mode_info);
+
+	printf("Welcome to mode %d (framebuffer %lu0x) :)\n", max_area_mode, gop->mode->frame_buffer_base);
+
+	// sys_table->boot_services->stall(10000000);
 
 	printf("Loaded at 0x%lux\n", (u64)lip->image_base);
 
@@ -120,8 +153,9 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 		pt_man_init(&pman, page_alloc);
 		pt_man_map(&pman, (void*)kernel_load, (void*)kload, ksize-kload);
 		pt_man_map(&pman, lip->image_base, lip->image_base, lip->image_size);
+		pt_man_map(&pman, (void*)gop->mode->frame_buffer_base, (void*)gop->mode->frame_buffer_base, gop->mode->frame_buffer_size);
 		printf("Virtual map: \n");
-		pt_man_print(&pman);
+	   //  pt_man_print(&pman);
 
 		for (i = 1; i < kernel_hdr->e_phnum; ++i) {
 			kernel_phdr = (Elf64_Phdr*)(kernel+kernel_hdr->e_phoff+(i*kernel_hdr->e_phentsize));
@@ -136,7 +170,7 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 			goto fail;
 		}
 
-		sys_table->boot_services->stall(5000000);
+		// sys_table->boot_services->stall(5000000);
 
 		mmap_size = 0;
 		sys_table->con_out->clear_screen(sys_table->con_out);
@@ -152,7 +186,14 @@ void start(EfiHandle image_handle, EfiSystemTable *sys_table) {
 			.map_size = mmap_size,
 			.map_entry_size = mmap_ent_size,
 			.phy_p4_base = (u64) pman.l4,
+			.fb_base = (void*) gop->mode->frame_buffer_base,
+			.fb_size = (usize) gop->mode->frame_buffer_size,
+			.xres = mode_info->horizontal_resolution,
+			.yres = mode_info->vertical_resolution,
+			.pitch = mode_info->pixels_per_scan_line
 		};
+
+		//printf("(Bootproto: xres=%d, yres=%d)\n", bootproto.xres, bootproto.yres);
 
 		if ((status = sys_table->boot_services->exit_boot_services(image_handle, map_key)) != EFI_SUCCESS)
 			printf("Failed to exit %d\n", (u32)status);
