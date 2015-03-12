@@ -4,6 +4,9 @@ use core::prelude::*;
 use core::ptr::Unique;
 use core::fmt;
 use unicode::str;
+use collections::Vec;
+use alloc::boxed::Box;
+use core::mem;
 
 pub type Status = usize;
 
@@ -18,26 +21,51 @@ pub struct SimpleTextOutputProtocol {
 
 pub struct Console {
     output_proto: Unique<SimpleTextOutputProtocol>,
+    buffer: &'static mut Option<Vec<u16>>,
 }
 
 impl Console {
     pub fn new(output_proto: Unique<SimpleTextOutputProtocol>) -> Console {
         Console {
             output_proto: output_proto,
+            buffer: unsafe { mem::transmute(&None::<Box<Vec<u16>>>) }
         }
+    }
+    pub fn test_print(&mut self, s: &str) -> fmt::Result {
+        match *self.buffer {
+            Some(_) => (),
+            None => {
+                let mut v = Box::new(Some(Vec::<u16>::new()));
+                self.buffer = unsafe { mem::transmute(&mut *v) };
+                unsafe { mem::forget(v) };
+            },
+        }
+        for c in str::Utf16Encoder::new(s.chars()) {
+            if c == '\n' as u16 {
+                self.test_print("\r");
+            }
+            self.buffer.as_mut().unwrap().push(c);
+            if c == '\n' as u16 {
+                self.buffer.as_mut().unwrap().push(0);
+                unsafe {
+                    (self.output_proto.get().output_string)(*self.output_proto, (&self.buffer.as_mut().unwrap()).as_ptr());
+                }
+                self.buffer.as_mut().unwrap().clear();
+            }
+        }
+        Ok(())
     }
 }
 
 impl fmt::Write for Console {
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        let mut buf = [0u16, 0u16];
         for c in str::Utf16Encoder::new(s.chars()) {
             if c == '\n' as u16 {
                 self.write_str("\r");
             }
-            buf[0] = c;
+            let tmp: [u16; 2] = [c, 0];
             unsafe {
-                (self.output_proto.get().output_string)(*self.output_proto, buf.as_ptr());
+                (self.output_proto.get().output_string)(*self.output_proto, tmp.as_ptr());
             }
         }
         Ok(())
@@ -146,8 +174,8 @@ pub struct SystemTable {
     pub con_out: *mut SimpleTextOutputProtocol,
     pub con_err_handle: Handle,
     pub con_err: *mut SimpleTextOutputProtocol,
-    pub runtime_services: RuntimeServices,
-    pub boot_services: BootServices,
+    pub runtime_services: *mut RuntimeServices,
+    pub boot_services: *mut BootServices,
     pub num_entries: usize,
     pub configuration_table: ConfigurationTable
 }
@@ -224,8 +252,8 @@ pub type Bool = u8;
 
 pub type RaiseTpl = extern "win64" fn(Tpl) -> Status;
 pub type RestoreTpl = extern "win64" fn(Tpl) -> Status;
-pub type AllocatePages = extern "win64" fn(AllocateType, MemoryType, usize, *mut u64) -> Status;
-pub type FreePages = extern "win64" fn(u64, usize) -> Status;
+pub type AllocatePages = extern "win64" fn(AllocateType, MemoryType, usize, *mut usize) -> Status;
+pub type FreePages = extern "win64" fn(usize, usize) -> Status;
 pub type GetMemoryMap = extern "win64" fn(*mut usize, *mut MemoryDescriptor, *mut usize, *mut usize, *mut u32) -> Status;
 pub type AllocatePool = extern "win64" fn(MemoryType, usize, *mut *mut ()) -> Status;
 pub type FreePool = extern "win64" fn(*const ()) -> Status;

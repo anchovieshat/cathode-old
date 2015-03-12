@@ -6,12 +6,15 @@
 #[macro_use]
 extern crate core;
 extern crate unicode;
+extern crate alloc;
+extern crate collections;
 
 macro_rules! println {
     ($($arg:tt)*) => (::println_formatted(format_args!($($arg)*)))
 }
 
 mod reloc;
+mod mem;
 mod lang;
 mod efi;
 
@@ -20,6 +23,7 @@ use core::ptr;
 use core::fmt;
 use core::fmt::Write;
 pub use reloc::_reloc;
+pub use mem::{rust_allocate, rust_deallocate, rust_reallocate, rust_reallocate_inplace, rust_usable_size, rust_stats_print};
 
 static mut ST: Option<ptr::Unique<efi::SystemTable>> = None;
 static mut CONSOLE: Option<efi::Console> = None;
@@ -40,5 +44,8 @@ pub fn start(image_handle: efi::Handle, sys_table: *mut efi::SystemTable) {
         CONSOLE = Some(c);
     }
     println!("Handle: {:x}", image_handle as usize);
+    unsafe {
+        CONSOLE.as_mut().unwrap().test_print("Ding");
+    }
     panic!("Failed to start kernel");
 }

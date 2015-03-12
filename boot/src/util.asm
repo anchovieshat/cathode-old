@@ -1,6 +1,7 @@
 bits 64
 
 global memcpy
+global memset
 global wstrlen
 global testout
 
@@ -34,8 +35,15 @@ memcpy:
 	popf
 	ret
 
-testout:
-	mov dx, 0x3F8
-	mov ax, 'a'
-	out dx, ax
+memset:
+	pushf
+	cld
+
+	mov rax, rsi
+	mov rcx, rdx
+	rep stosb
+
+	mov rax, rdi
+
+	popf
 	ret
