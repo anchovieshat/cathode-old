@@ -10,13 +10,38 @@ use core::mem;
 
 pub type Status = usize;
 
-pub type TextReset = *const ();
+pub type TextReset = extern "win64" fn (*const SimpleTextOutputProtocol, Bool) -> Status;
 pub type TextString = extern "win64" fn (*const SimpleTextOutputProtocol, *const u16) -> Status;
+pub type TextTestString = extern "win64" fn (*const SimpleTextOutputProtocol, *const u16) -> Status;
+pub type TextQueryMode = extern "win64" fn (*const SimpleTextOutputProtocol, usize, *mut usize, *mut usize) -> Status;
+pub type TextSetMode = extern "win64" fn (*const SimpleTextOutputProtocol, usize) -> Status;
+pub type TextSetAttribute = extern "win64" fn (*const SimpleTextOutputProtocol, usize) -> Status;
+pub type TextClearScreen = extern "win64" fn (*const SimpleTextOutputProtocol) -> Status;
+pub type TextSetCursorPosition = extern "win64" fn (*const SimpleTextOutputProtocol, usize, usize) -> Status;
+pub type TextEnableCursor = extern "win64" fn (*const SimpleTextOutputProtocol, Bool) -> Status;
+
+#[repr(C)]
+pub struct SimpleTextOutputMode {
+    pub max_mode: i32,
+    pub mode: i32,
+    pub attribute: i32,
+    pub cursor_column: i32,
+    pub cursor_row: i32,
+    pub cursor_visible: Bool,
+}
 
 #[repr(C)]
 pub struct SimpleTextOutputProtocol {
     pub reset: TextReset,
     pub output_string: TextString,
+    pub test_string: TextTestString,
+    pub query_mode: TextQueryMode,
+    pub set_mode: TextSetMode,
+    pub set_attribute: TextSetAttribute,
+    pub clear_screen: TextClearScreen,
+    pub set_cursor_position: TextSetCursorPosition,
+    pub enable_cursor: TextEnableCursor,
+    pub mode: *const SimpleTextOutputMode,
 }
 
 pub struct Console {
@@ -54,6 +79,11 @@ impl Console {
             }
         }
         Ok(())
+    }
+    pub fn clear(&mut self) {
+        unsafe {
+            (self.output_proto.get().clear_screen)(*self.output_proto);
+        }
     }
 }
 
@@ -178,6 +208,14 @@ pub struct SystemTable {
     pub boot_services: *mut BootServices,
     pub num_entries: usize,
     pub configuration_table: ConfigurationTable
+}
+
+impl SystemTable {
+    pub fn handle_protocol<T>(&self, handle: Handle, guid: &Guid) -> *mut T {
+        let mut x: *mut T = unsafe { mem::uninitialized() };
+        unsafe { ((*self.boot_services).handle_protocol)(handle, guid, mem::transmute(&x)); }
+        x
+    }
 }
 
 unsafe impl Sync for SystemTable { }
@@ -332,3 +370,72 @@ pub struct BootServices {
 }
 
 pub type Handle = *const ();
+
+#[repr(C)]
+pub struct LoadedImageProtocol {
+    pub revision: u32,
+    pub parent_handle: Handle,
+    pub system_table: *const SystemTable,
+    pub device_handle: Handle,
+    pub file_path: *const DevicePathProtocol,
+    _reserved: *const (),
+    pub load_options_size: u32,
+    pub load_options: *const (),
+    pub image_base: *const (),
+    pub image_size: u64,
+    pub image_code_type: MemoryType,
+    pub image_data_type: MemoryType,
+    pub unload: ImageUnload,
+}
+
+pub static LOADED_IMAGE_PROTOCOL_GUID: Guid = Guid { data1: 0x5b1b31a1, data2: 0x9562, data3: 0x11d2, data4: [0x8e,0x3f,0x00,0xa0,0xc9,0x69,0x72,0x3b] };
+
+pub type FileOpen = extern "win64" fn(*mut FileProtocol, *mut *const FileProtocol, *const u16, u64, u64) -> Status;
+pub type FileClose = extern "win64" fn(*mut FileProtocol) -> Status;
+pub type FileDelete = extern "win64" fn(*mut FileProtocol) -> Status;
+pub type FileRead = extern "win64" fn(*mut FileProtocol, *mut usize, *mut ()) -> Status;
+pub type FileWrite = extern "win64" fn(*mut FileProtocol, *mut usize, *mut ()) -> Status;
+pub type FileGetPosition = extern "win64" fn(*mut FileProtocol, *mut u64) -> Status;
+pub type FileSetPosition = extern "win64" fn(*mut FileProtocol, u64) -> Status;
+pub type FileGetInfo = extern "win64" fn(*mut FileProtocol, *const Guid, *mut usize, *mut ()) -> Status;
+pub type FileSetInfo = extern "win64" fn(*mut FileProtocol, *const Guid, usize, *mut ()) -> Status;
+pub type FileFlush = extern "win64" fn(*mut FileProtocol) -> Status;
+
+#[repr(C)]
+pub struct FileProtocol {
+    pub revision: u64,
+    pub open: FileOpen,
+    pub close: FileClose,
+    pub delete: FileDelete,
+    pub read: FileRead,
+    pub write: FileWrite,
+    pub get_position: FileGetPosition,
+    pub set_position: FileSetPosition,
+    pub get_info: FileGetInfo,
+    pub set_info: FileSetInfo,
+    pub flush: FileFlush,
+}
+
+#[repr(C)]
+pub struct FileInfo {
+    pub size: u64,
+    pub file_size: u64,
+    pub physical_size: u64,
+    pub create_time: Time,
+    pub last_access_time: Time,
+    pub modification_time: Time,
+    pub attribute: u64,
+    pub file_name: *const u16,
+}
+
+pub static FILE_INFO_GUID: Guid = Guid { data1: 0x09576e92, data2: 0x63df, data3: 0x11d2, data4: [0x8e,0x39,0x00,0xa0,0xc9,0x69,0x72,0x3b]};
+
+#[repr(C)]
+pub struct SimpleFileSystemProtocol {
+    pub revision: u64,
+    pub open_volume: SimpleFileSystemProtocolOpenVolume,
+}
+
+pub type SimpleFileSystemProtocolOpenVolume = extern "win64" fn (*mut SimpleFileSystemProtocol, *mut *const FileProtocol);
+
+pub static SIMPLE_FILE_SYSTEM_PROTOCOL_GUID: Guid = Guid { data1: 0x0964e5b22, data2: 0x6459, data3: 0x11d2, data4: [0x8e,0x39,0x00,0xa0,0xc9,0x69,0x72,0x3b]};

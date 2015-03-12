@@ -35,17 +35,16 @@ fn println_formatted(args: fmt::Arguments) {
 }
 
 #[no_mangle]
-pub fn start(image_handle: efi::Handle, sys_table: *mut efi::SystemTable) {
-    unsafe {
-        ST = Some(ptr::Unique::new(sys_table));
-    }
-    let c = unsafe { efi::Console::new(ptr::Unique::new(ST.as_ref().unwrap().get().con_out)) };
-    unsafe {
-        CONSOLE = Some(c);
-    }
-    println!("Handle: {:x}", image_handle as usize);
-    unsafe {
-        CONSOLE.as_mut().unwrap().test_print("Ding");
-    }
+pub unsafe fn start(image_handle: efi::Handle, sys_table: *mut efi::SystemTable) {
+    ST = Some(ptr::Unique::new(sys_table));
+    CONSOLE = Some(efi::Console::new(ptr::Unique::new(ST.as_ref().unwrap().get().con_out)));
+    let st = ST.as_ref().unwrap().get();
+    let cons = CONSOLE.as_mut().unwrap();
+    cons.clear();
+    let lip: *const efi::LoadedImageProtocol = st.handle_protocol(image_handle, &efi::LOADED_IMAGE_PROTOCOL_GUID);
+    println!("Loaded at: {:x}", (*lip).image_base as usize);
+    let dip: *const efi::SimpleFileSystemProtocol = st.handle_protocol((*lip).device_handle, &efi::SIMPLE_FILE_SYSTEM_PROTOCOL_GUID);
+    println!("dip returned {:x}", dip as usize);
+
     panic!("Failed to start kernel");
 }
