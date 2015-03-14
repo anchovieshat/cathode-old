@@ -226,6 +226,7 @@ pub struct ConfigurationTable {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct Time {
     pub year: u16,
     pub month: u8,
@@ -390,16 +391,33 @@ pub struct LoadedImageProtocol {
 
 pub static LOADED_IMAGE_PROTOCOL_GUID: Guid = Guid { data1: 0x5b1b31a1, data2: 0x9562, data3: 0x11d2, data4: [0x8e,0x3f,0x00,0xa0,0xc9,0x69,0x72,0x3b] };
 
-pub type FileOpen = extern "win64" fn(*mut FileProtocol, *mut *const FileProtocol, *const u16, u64, u64) -> Status;
-pub type FileClose = extern "win64" fn(*mut FileProtocol) -> Status;
-pub type FileDelete = extern "win64" fn(*mut FileProtocol) -> Status;
-pub type FileRead = extern "win64" fn(*mut FileProtocol, *mut usize, *mut ()) -> Status;
-pub type FileWrite = extern "win64" fn(*mut FileProtocol, *mut usize, *mut ()) -> Status;
-pub type FileGetPosition = extern "win64" fn(*mut FileProtocol, *mut u64) -> Status;
-pub type FileSetPosition = extern "win64" fn(*mut FileProtocol, u64) -> Status;
-pub type FileGetInfo = extern "win64" fn(*mut FileProtocol, *const Guid, *mut usize, *mut ()) -> Status;
-pub type FileSetInfo = extern "win64" fn(*mut FileProtocol, *const Guid, usize, *mut ()) -> Status;
-pub type FileFlush = extern "win64" fn(*mut FileProtocol) -> Status;
+#[repr(u64)]
+pub enum FileMode {
+    Read = 0x1,
+    Write = 0x2,
+    Create = 0x8000000000000000
+}
+
+#[repr(u64)]
+pub enum FileAttribute {
+    ReadOnly = 0x1,
+    Hidden = 0x2,
+    System = 0x4,
+    Reserved = 0x8,
+    Directory = 0x10,
+    Archive = 0x20
+}
+
+pub type FileOpen = extern "win64" fn(*const FileProtocol, *mut *const FileProtocol, *const u16, FileMode, FileAttribute) -> Status;
+pub type FileClose = extern "win64" fn(*const FileProtocol) -> Status;
+pub type FileDelete = extern "win64" fn(*const FileProtocol) -> Status;
+pub type FileRead = extern "win64" fn(*const FileProtocol, *mut usize, *mut ()) -> Status;
+pub type FileWrite = extern "win64" fn(*const FileProtocol, *mut usize, *mut ()) -> Status;
+pub type FileGetPosition = extern "win64" fn(*const FileProtocol, *mut u64) -> Status;
+pub type FileSetPosition = extern "win64" fn(*const FileProtocol, u64) -> Status;
+pub type FileGetInfo = extern "win64" fn(*const FileProtocol, *const Guid, *mut usize, *mut FileInfo) -> Status;
+pub type FileSetInfo = extern "win64" fn(*const FileProtocol, *const Guid, usize, *mut FileInfo) -> Status;
+pub type FileFlush = extern "win64" fn(*const FileProtocol) -> Status;
 
 #[repr(C)]
 pub struct FileProtocol {
@@ -417,6 +435,7 @@ pub struct FileProtocol {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct FileInfo {
     pub size: u64,
     pub file_size: u64,
@@ -428,7 +447,7 @@ pub struct FileInfo {
     pub file_name: *const u16,
 }
 
-pub static FILE_INFO_GUID: Guid = Guid { data1: 0x09576e92, data2: 0x63df, data3: 0x11d2, data4: [0x8e,0x39,0x00,0xa0,0xc9,0x69,0x72,0x3b]};
+pub static FILE_INFO_GUID: Guid = Guid { data1: 0x09576e92, data2: 0x6d3f, data3: 0x11d2, data4: [0x8e,0x39,0x00,0xa0,0xc9,0x69,0x72,0x3b]};
 
 #[repr(C)]
 pub struct SimpleFileSystemProtocol {
@@ -436,6 +455,6 @@ pub struct SimpleFileSystemProtocol {
     pub open_volume: SimpleFileSystemProtocolOpenVolume,
 }
 
-pub type SimpleFileSystemProtocolOpenVolume = extern "win64" fn (*mut SimpleFileSystemProtocol, *mut *const FileProtocol);
+pub type SimpleFileSystemProtocolOpenVolume = extern "win64" fn (*const SimpleFileSystemProtocol, *mut *const FileProtocol) -> Status;
 
 pub static SIMPLE_FILE_SYSTEM_PROTOCOL_GUID: Guid = Guid { data1: 0x0964e5b22, data2: 0x6459, data3: 0x11d2, data4: [0x8e,0x39,0x00,0xa0,0xc9,0x69,0x72,0x3b]};

@@ -5,6 +5,7 @@ use core;
 use core::mem;
 use core::cmp::min;
 use core::ptr;
+use core::prelude::*;
 
 const PAGE_SHIFT: usize = 12;
 const PAGESZ: usize = (1 << PAGE_SHIFT);
@@ -17,11 +18,13 @@ fn sz_to_pg(sz: usize) -> usize {
 #[no_mangle]
 pub unsafe extern fn rust_allocate(size: usize, align: usize) -> *mut u8 {
     println!("Allocate: {:x}, {:x}", size, align);
+    if size == 0 {
+        return ptr::null_mut();
+    }
     if align > PAGESZ {
         panic!("Can't allocate memory pool on alignment {}", align);
     }
     let mut mem: usize = mem::uninitialized();
-    let derp: usize = mem::transmute((*::ST.as_ref().unwrap().get().boot_services).allocate_pages);
     let st = ((*::ST.as_ref().unwrap().get().boot_services).allocate_pages)(AllocateAnyPages, EfiLoaderData, sz_to_pg(size), &mut mem);
     if st != 0 {
         return ptr::null_mut();
@@ -32,6 +35,7 @@ pub unsafe extern fn rust_allocate(size: usize, align: usize) -> *mut u8 {
 
 #[no_mangle]
 pub unsafe extern fn rust_deallocate(ptr: *mut u8, size: usize, align: usize) {
+    if ptr.is_null() { return; }
     ((*::ST.as_ref().unwrap().get().boot_services).free_pages)(ptr as usize, sz_to_pg(size));
 }
 
