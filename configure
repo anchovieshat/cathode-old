@@ -144,7 +144,7 @@ msg "checking configure arguments"
 validate_args
 
 msg "checking rust path"
-RUST_PATH=`readlink -f $1`
+RUST_PATH=`readlink -f $RUST_PATH`
 msg "RUST_PATH = $RUST_PATH"
 
 need_rustlib "core"
