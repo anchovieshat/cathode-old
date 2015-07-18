@@ -1,4 +1,5 @@
 # Cathode
+# Warning! This is outdated, and will no longer build!
 
 ## Building Cathode on Linux
 
@@ -24,5 +25,3 @@
 	$ ninja disk
 	$ qemu-system-x86_64 -bios /usr/share/ovmf/ovmf_x86.bin -m 512 -serial stdio build/disk.img
 	```
-
-Currently tested on Arch Linux
